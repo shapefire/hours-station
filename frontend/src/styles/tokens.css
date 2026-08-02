@@ -1,0 +1,12 @@
+:root {
+  --bg0: #f7f6f2;
+  --bg1: #eceae3;
+  --ink: #1c2416;
+  --muted: #5c6b52;
+  --accent: #3f5d2a;
+  --accent-soft: #dce8c8;
+  --lime: #b8d47a;
+  --rest: #8a6a3a;
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-body: "DM Sans", "Segoe UI", sans-serif;
+}
