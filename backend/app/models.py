@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date, time
-from sqlalchemy import String, Date, Time, Text, DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Boolean, String, Date, Time, Text, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
@@ -9,6 +9,7 @@ class Employee(Base):
     __tablename__ = "employees"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     entries: Mapped[list["WorkEntry"]] = relationship(back_populates="employee")
 

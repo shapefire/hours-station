@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import StatsPeopleTable from '../components/StatsPeopleTable.jsx'
+import Metric from '../components/Metric.jsx'
 
 function shiftMonth(year, month, delta) {
   const d = new Date(year, month - 1 + delta, 1)
@@ -99,19 +100,31 @@ export default function StatsPage() {
         <div className="stats-kpi__item">
           <span className="stats-kpi__label">当月总工时</span>
           <span className="stats-kpi__value">
-            {loading && !stats ? '…' : (stats?.total_hours ?? '0.0')}
+            {loading && !stats ? (
+              '…'
+            ) : (
+              <Metric value={stats?.total_hours ?? '0.0'} unit="h" />
+            )}
           </span>
         </div>
         <div className="stats-kpi__item">
           <span className="stats-kpi__label">登记人数</span>
           <span className="stats-kpi__value">
-            {loading && !stats ? '…' : (stats?.employee_count ?? 0)}
+            {loading && !stats ? (
+              '…'
+            ) : (
+              <Metric value={stats?.employee_count ?? 0} unit="人" />
+            )}
           </span>
         </div>
         <div className="stats-kpi__item">
           <span className="stats-kpi__label">出勤人天</span>
           <span className="stats-kpi__value">
-            {loading && !stats ? '…' : (stats?.attendance_person_days ?? 0)}
+            {loading && !stats ? (
+              '…'
+            ) : (
+              <Metric value={stats?.attendance_person_days ?? 0} unit="天" />
+            )}
           </span>
         </div>
       </section>

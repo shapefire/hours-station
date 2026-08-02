@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useState } from 'react'
 import api from '../api/client.js'
+import Metric from './Metric.jsx'
 
 function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate()
@@ -48,7 +49,7 @@ function DayDetailList({ days, expectedCount }) {
                   )}
                 </td>
                 <td className="stats-days__hours">
-                  {isRest ? '—' : day.effective_hours}
+                  {isRest ? '—' : <Metric value={day.effective_hours} unit="h" chip />}
                 </td>
               </tr>
             )
@@ -158,13 +159,21 @@ export default function StatsPeopleTable({ year, month, people }) {
                       {person.name}
                     </button>
                   </td>
-                  <td className="stats-people__num">{person.attendance_days}</td>
-                  <td className="stats-people__num">{person.rest_days}</td>
-                  <td className="stats-people__num stats-people__hours">
-                    {person.total_hours}
+                  <td className="stats-people__num">
+                    <Metric value={person.attendance_days} unit="天" chip />
                   </td>
                   <td className="stats-people__num">
-                    {formatAvgHours(person.avg_hours)}
+                    <Metric value={person.rest_days} unit="天" chip />
+                  </td>
+                  <td className="stats-people__num stats-people__hours">
+                    <Metric value={person.total_hours} unit="h" chip />
+                  </td>
+                  <td className="stats-people__num">
+                    {formatAvgHours(person.avg_hours) === '—' ? (
+                      '—'
+                    ) : (
+                      <Metric value={formatAvgHours(person.avg_hours)} unit="h" chip />
+                    )}
                   </td>
                 </tr>
                 {open ? (

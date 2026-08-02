@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from 'react'
-import api from '../api/client.js'
+import { useEffect, useState } from 'react'
+import EmployeeNameField from './EmployeeNameField.jsx'
+import TimeField from './TimeField.jsx'
 
 const EMPTY = {
   name: '',
@@ -25,34 +26,15 @@ export default function EntryForm({
   onCancel,
   busy = false,
   error = null,
+  monthYear = null,
+  month = null,
 }) {
-  const formId = useId()
-  const listId = `${formId}-employees`
   const isEdit = mode === 'edit'
   const [form, setForm] = useState(() => entryToForm(initialEntry))
-  const [hints, setHints] = useState([])
 
   useEffect(() => {
     setForm(entryToForm(initialEntry))
   }, [initialEntry])
-
-  useEffect(() => {
-    if (isEdit) return undefined
-    const q = form.name.trim()
-    if (!q) {
-      setHints([])
-      return undefined
-    }
-
-    const timer = setTimeout(() => {
-      api
-        .get(`/api/employees?q=${encodeURIComponent(q)}`)
-        .then((rows) => setHints(Array.isArray(rows) ? rows : []))
-        .catch(() => setHints([]))
-    }, 200)
-
-    return () => clearTimeout(timer)
-  }, [form.name, isEdit])
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -74,49 +56,43 @@ export default function EntryForm({
       <div className="entry-form__row">
         <label className="entry-form__field">
           <span>姓名</span>
-          <input
-            type="text"
-            name="name"
-            value={form.name}
-            onChange={(e) => updateField('name', e.target.value)}
-            list={isEdit ? undefined : listId}
-            required
-            maxLength={64}
-            disabled={busy || isEdit}
-            autoComplete="off"
-            placeholder="输入或选择员工"
-          />
-          {!isEdit ? (
-            <datalist id={listId}>
-              {hints.map((emp) => (
-                <option key={emp.id} value={emp.name} />
-              ))}
-            </datalist>
-          ) : null}
+          {isEdit ? (
+            <input type="text" value={form.name} disabled readOnly />
+          ) : (
+            <EmployeeNameField
+              value={form.name}
+              onChange={(name) => updateField('name', name)}
+              disabled={busy}
+              required
+              placeholder="选择花名册或输入新姓名"
+              monthYear={monthYear}
+              month={month}
+            />
+          )}
         </label>
       </div>
 
       <div className="entry-form__row entry-form__row--times">
         <label className="entry-form__field">
           <span>开始</span>
-          <input
-            type="time"
+          <TimeField
             name="start_time"
             value={form.start_time}
-            onChange={(e) => updateField('start_time', e.target.value)}
+            onChange={(v) => updateField('start_time', v)}
             required
             disabled={busy}
+            aria-label="开始时间"
           />
         </label>
         <label className="entry-form__field">
           <span>结束</span>
-          <input
-            type="time"
+          <TimeField
             name="end_time"
             value={form.end_time}
-            onChange={(e) => updateField('end_time', e.target.value)}
+            onChange={(v) => updateField('end_time', v)}
             required
             disabled={busy}
+            aria-label="结束时间"
           />
         </label>
       </div>

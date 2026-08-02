@@ -7,6 +7,9 @@
   --accent-soft: #dce8c8;
   --lime: #b8d47a;
   --rest: #8a6a3a;
+  --metric: #2f4a1c;
+  --metric-soft: #e4efd0;
   --font-display: "Source Serif 4", Georgia, serif;
   --font-body: "DM Sans", "Segoe UI", sans-serif;
+  --font-metric: "Source Serif 4", Georgia, "Times New Roman", serif;
 }

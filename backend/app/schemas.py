@@ -59,6 +59,7 @@ class EmployeeOut(BaseModel):
 
     id: UUID
     name: str = Field(..., max_length=64)
+    month_hours: str | None = None
 
 
 class CalendarDayOut(BaseModel):

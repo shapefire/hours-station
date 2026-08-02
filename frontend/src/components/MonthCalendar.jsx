@@ -1,3 +1,5 @@
+import Metric from './Metric.jsx'
+
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 
 function pad2(n) {
@@ -83,7 +85,8 @@ export default function MonthCalendar({
           </button>
         </div>
         <p className="month-calendar__summary">
-          已登记 {registeredDays} 天 · 合计 {monthTotalHours}h
+          已登记 <Metric value={registeredDays} unit="天" chip /> · 合计{' '}
+          <Metric value={monthTotalHours} unit="h" chip />
         </p>
       </header>
 
@@ -122,15 +125,11 @@ export default function MonthCalendar({
               aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}${inPasteMode && !isPasteSource ? '，粘贴目标' : ''}`}
             >
               <span className="month-calendar__day-num">{cell.day}</span>
-              {isSelected && hasData ? (
+              {hasData ? (
                 <span className="month-calendar__meta">
-                  {summary.entry_count}人 · {summary.total_effective_hours}h
-                </span>
-              ) : null}
-              {!isSelected && hasData ? (
-                <span className="month-calendar__meta month-calendar__meta--dot">
-                  <span className="month-calendar__dot" aria-hidden="true" />
-                  {summary.total_effective_hours}h
+                  <Metric value={summary.entry_count} unit="人" chip />
+                  <span className="month-calendar__meta-sep">·</span>
+                  <Metric value={summary.total_effective_hours} unit="h" chip />
                 </span>
               ) : null}
             </button>

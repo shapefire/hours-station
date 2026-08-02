@@ -52,6 +52,15 @@ def list_entries(
     return [EntryOut.model_validate(entries_service.entry_to_dict(e)) for e in entries]
 
 
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def clear_day_entries(
+    work_date: date = Query(..., alias="date"),
+    db: Session = Depends(get_db),
+):
+    entries_service.clear_entries_by_date(db, work_date)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/copy-day", response_model=CopyDayOut)
 def copy_day(payload: CopyDayIn, db: Session = Depends(get_db)):
     try:

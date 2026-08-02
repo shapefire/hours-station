@@ -243,6 +243,23 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleClearDay() {
+    if (!selectedDate || entries.length === 0) return
+    const ok = window.confirm(
+      `确认清空 ${selectedDate} 的全部 ${entries.length} 条安排？此操作不可撤销。`,
+    )
+    if (!ok) return
+    try {
+      clearFormState()
+      clearDraftState()
+      await api.delete(`/api/entries?date=${encodeURIComponent(selectedDate)}`)
+      setFeedback(`已清空 ${selectedDate} 的安排`)
+      await Promise.all([refreshCalendar(), refreshEntries()])
+    } catch (err) {
+      window.alert(err.message || '清空失败')
+    }
+  }
+
   function handleCopyDay() {
     if (!selectedDate || entries.length === 0) {
       setFeedback('当日无安排可复制')
@@ -305,18 +322,20 @@ export default function CalendarPage() {
     clearDraftState()
   }
 
-  async function handleDraftSubmit(name) {
+  async function handleDraftSubmit(payload) {
     if (!draftCopy?.sourceEntry || !selectedDate) return
     setDraftBusy(true)
     setDraftError(null)
     try {
-      await api.post('/api/entries/copy-person', {
-        source_entry_id: draftCopy.sourceEntry.id,
-        name,
-        date: selectedDate,
+      await api.post('/api/entries', {
+        work_date: selectedDate,
+        name: payload.name,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
+        note: payload.note,
       })
       clearDraftState()
-      setFeedback(`已复制为「${name}」`)
+      setFeedback(`已复制为「${payload.name}」`)
       await Promise.all([refreshCalendar(), refreshEntries()])
     } catch (err) {
       setDraftError(err.message || '单人复制失败')
@@ -375,12 +394,15 @@ export default function CalendarPage() {
           draftError={draftError}
           draftBusy={draftBusy}
           pasteMode={pasteMode}
+          monthYear={viewYear}
+          month={viewMonth}
           onAdd={handleAdd}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onFormSubmit={handleFormSubmit}
           onFormCancel={handleFormCancel}
           onCopyDay={handleCopyDay}
+          onClearDay={handleClearDay}
           onCopyPerson={handleCopyPerson}
           onDraftSubmit={handleDraftSubmit}
           onDraftCancel={handleDraftCancel}

@@ -1,6 +1,9 @@
 # 工时工作站 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** Task 1–11 已完成（2026-08）。本文保留为历史实现清单；**以 as-built 规格为准**：`docs/superpowers/specs/2026-08-02-hours-station-design.md`。  
+> 初版计划中的 checkbox 步骤已落地；后续增量见文末「Post-MVP As-built」。
+
+> **For agentic workers（历史）：** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现无登录的工时登记与月度统计工作站：React 日历工作台 + FastAPI/PostgreSQL，含整日/单人复制与管理者统计看板。
 
@@ -8,7 +11,8 @@
 
 **Tech Stack:** React 18 + Vite + React Router；FastAPI + SQLAlchemy 2 + Alembic + psycopg；PostgreSQL 16；pytest；Docker Compose（仅 Postgres）。
 
-**Spec:** `docs/superpowers/specs/2026-08-02-hours-station-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-02-hours-station-design.md`  
+**Code root:** `.worktrees/hours-station/`（或仓库内等价 frontend/backend 布局）
 
 ## Global Constraints
 
@@ -676,3 +680,23 @@ cd frontend && npm install && npm run dev
 - 日期：API 用 `YYYY-MM-DD` 字符串；时间用 `HH:mm` 或 `HH:mm:ss`（Pydantic time 序列化）
 - `effective_hours`：JSON 中用字符串一位小数，避免浮点误差
 - 员工主键：UUID 字符串
+
+---
+
+## Post-MVP As-built（相对 Task 1–11 的增量）
+
+下列能力已在代码中落地，规格已同步；实现计划正文未逐条改写 checkbox：
+
+| 增量 | 要点 | 主要位置 |
+|------|------|----------|
+| 花名册软删除 | `employees.is_active`；`DELETE /api/employees/{id}` | `models` / `employees` service+router；`EmployeeNameField` |
+| 当月已排工时 | `GET /api/employees?year=&month=` → `month_hours` | `employees` service；姓名下拉 |
+| 清空当日 | `DELETE /api/entries?date=` | `entries` router；日明细「清空当日」 |
+| 月历默认摘要 | 有数据格始终显示「X人 · Yh」 | `MonthCalendar` |
+| 新增/草稿置顶 | 创建表单与单人草稿在列表顶部 | `DayPanel` |
+| 自定义时间 | `TimeField` 时/分弹层，分钟 00/30 | `TimeField.jsx` |
+| 当日预览复制 | 弹窗 + 剪贴板；首行日期与合计 | `DayPreviewModal`；`dayPreviewText.js` |
+| Metric 数字 | 人数/工时/天数视觉强调 | `Metric.jsx`；日历/日明细/统计 |
+| 单人复制可编辑 | 草稿可改姓名、开始/结束、备注后 POST | `DayPanel` DraftCopyRow |
+
+前端关键文件补充：`EmployeeNameField.jsx`、`TimeField.jsx`、`DayPreviewModal.jsx`、`Metric.jsx`、`utils/dayPreviewText.js`。

@@ -1,6 +1,9 @@
-import { useEffect, useId, useState } from 'react'
-import api from '../api/client.js'
+import { useEffect, useRef, useState } from 'react'
 import EntryForm from './EntryForm.jsx'
+import EmployeeNameField from './EmployeeNameField.jsx'
+import TimeField from './TimeField.jsx'
+import DayPreviewModal from './DayPreviewModal.jsx'
+import Metric from './Metric.jsx'
 
 function formatDisplayDate(dateKey) {
   if (!dateKey) return '—'
@@ -14,72 +17,94 @@ function sumHours(entries) {
     .toFixed(1)
 }
 
-function DraftCopyRow({ sourceEntry, busy, error, onSubmit, onCancel }) {
-  const formId = useId()
-  const listId = `${formId}-employees`
+function toTimeInputValue(value) {
+  if (!value) return ''
+  return String(value).slice(0, 5)
+}
+
+function DraftCopyRow({
+  sourceEntry,
+  busy,
+  error,
+  onSubmit,
+  onCancel,
+  monthYear = null,
+  month = null,
+}) {
   const [name, setName] = useState('')
-  const [hints, setHints] = useState([])
+  const [startTime, setStartTime] = useState('07:30')
+  const [endTime, setEndTime] = useState('16:00')
+  const [note, setNote] = useState('')
 
   useEffect(() => {
     setName('')
-  }, [sourceEntry?.id])
-
-  useEffect(() => {
-    const q = name.trim()
-    if (!q) {
-      setHints([])
-      return undefined
-    }
-
-    const timer = setTimeout(() => {
-      api
-        .get(`/api/employees?q=${encodeURIComponent(q)}`)
-        .then((rows) => setHints(Array.isArray(rows) ? rows : []))
-        .catch(() => setHints([]))
-    }, 200)
-
-    return () => clearTimeout(timer)
-  }, [name])
+    setStartTime(toTimeInputValue(sourceEntry?.start_time) || '07:30')
+    setEndTime(toTimeInputValue(sourceEntry?.end_time) || '16:00')
+    setNote(sourceEntry?.note || '')
+  }, [sourceEntry?.id, sourceEntry?.start_time, sourceEntry?.end_time, sourceEntry?.note])
 
   function handleSubmit(event) {
     event.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
-    onSubmit?.(trimmed)
+    onSubmit?.({
+      name: trimmed,
+      start_time: startTime,
+      end_time: endTime,
+      note: note.trim() ? note.trim() : null,
+    })
   }
 
   return (
     <li className="day-panel__item day-panel__item--draft">
       <form className="day-panel__draft-form" onSubmit={handleSubmit}>
-        <div className="day-panel__row">
-          <label className="day-panel__draft-name">
-            <span className="visually-hidden">姓名</span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              list={listId}
+        <p className="day-panel__draft-label">快速复制 · 来自 {sourceEntry.employee_name}</p>
+        <label className="day-panel__draft-field">
+          <span>姓名</span>
+          <EmployeeNameField
+            value={name}
+            onChange={setName}
+            disabled={busy}
+            required
+            autoFocus
+            placeholder="选择花名册或输入新姓名"
+            monthYear={monthYear}
+            month={month}
+          />
+        </label>
+        <div className="day-panel__draft-times">
+          <label className="day-panel__draft-field">
+            <span>开始</span>
+            <TimeField
+              value={startTime}
+              onChange={setStartTime}
               required
-              maxLength={64}
               disabled={busy}
-              autoComplete="off"
-              autoFocus
-              placeholder="输入或选择姓名"
+              aria-label="开始时间"
             />
-            <datalist id={listId}>
-              {hints.map((emp) => (
-                <option key={emp.id} value={emp.name} />
-              ))}
-            </datalist>
           </label>
-          <span className="day-panel__time">
-            {sourceEntry.start_time}–{sourceEntry.end_time}
-          </span>
-          <span className="day-panel__hours">{sourceEntry.effective_hours}h</span>
+          <label className="day-panel__draft-field">
+            <span>结束</span>
+            <TimeField
+              value={endTime}
+              onChange={setEndTime}
+              required
+              disabled={busy}
+              aria-label="结束时间"
+            />
+          </label>
         </div>
-        {sourceEntry.note ? (
-          <p className="day-panel__note">{sourceEntry.note}</p>
-        ) : null}
+        <label className="day-panel__draft-field">
+          <span>备注</span>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={busy}
+            maxLength={500}
+            placeholder="可选"
+          />
+        </label>
         {error ? <p className="day-panel__draft-error">{error}</p> : null}
         <div className="day-panel__item-actions">
           <button
@@ -111,19 +136,34 @@ export default function DayPanel({
   draftError = null,
   draftBusy = false,
   pasteMode = null,
+  monthYear = null,
+  month = null,
   onAdd,
   onEdit,
   onDelete,
   onFormSubmit,
   onFormCancel,
   onCopyDay,
+  onClearDay,
   onCopyPerson,
   onDraftSubmit,
   onDraftCancel,
 }) {
+  const bodyRef = useRef(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const totalHours = sumHours(entries)
   const peopleCount = entries.length
   const actionsLocked = Boolean(formMode || draftCopy || pasteMode)
+
+  useEffect(() => {
+    if (formMode === 'create' || draftCopy?.sourceEntry) {
+      bodyRef.current?.scrollTo({ top: 0 })
+    }
+  }, [formMode, draftCopy?.sourceEntry])
+
+  useEffect(() => {
+    setPreviewOpen(false)
+  }, [selectedDate])
 
   return (
     <section className="day-panel" aria-label="日明细">
@@ -131,10 +171,20 @@ export default function DayPanel({
         <div>
           <h2 className="day-panel__title">{formatDisplayDate(selectedDate)}</h2>
           <p className="day-panel__stats">
-            {peopleCount} 人 · 合计 {totalHours}h
+            <Metric value={peopleCount} unit="人" chip /> · 合计{' '}
+            <Metric value={totalHours} unit="h" chip />
           </p>
         </div>
         <div className="day-panel__header-actions">
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => setPreviewOpen(true)}
+            disabled={!selectedDate || peopleCount === 0}
+            title="预览当日安排，便于复制到微信"
+          >
+            预览
+          </button>
           <button
             type="button"
             className="btn btn--ghost"
@@ -142,6 +192,15 @@ export default function DayPanel({
             disabled={!selectedDate || peopleCount === 0 || actionsLocked}
           >
             复制到…
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--danger"
+            onClick={onClearDay}
+            disabled={!selectedDate || peopleCount === 0 || actionsLocked}
+            title="清空当日全部安排"
+          >
+            清空当日
           </button>
           <button
             type="button"
@@ -154,14 +213,41 @@ export default function DayPanel({
         </div>
       </header>
 
-      <div className="day-panel__body">
+      <div className="day-panel__body" ref={bodyRef}>
         {loading ? <p className="day-panel__status">加载中…</p> : null}
 
         {!loading && entries.length === 0 && formMode !== 'create' && !draftCopy ? (
           <p className="day-panel__status">当日暂无登记，点击「新增」开始录入。</p>
         ) : null}
 
+        {formMode === 'create' ? (
+          <div className="day-panel__create">
+            <h3 className="day-panel__create-title">新增登记</h3>
+            <EntryForm
+              mode="create"
+              onSubmit={onFormSubmit}
+              onCancel={onFormCancel}
+              busy={formBusy}
+              error={formError}
+              monthYear={monthYear}
+              month={month}
+            />
+          </div>
+        ) : null}
+
         <ul className="day-panel__list">
+          {draftCopy?.sourceEntry ? (
+            <DraftCopyRow
+              sourceEntry={draftCopy.sourceEntry}
+              busy={draftBusy}
+              error={draftError}
+              onSubmit={onDraftSubmit}
+              onCancel={onDraftCancel}
+              monthYear={monthYear}
+              month={month}
+            />
+          ) : null}
+
           {entries.map((entry) => {
             const isEditing = formMode === 'edit' && editingEntry?.id === entry.id
             return (
@@ -174,6 +260,8 @@ export default function DayPanel({
                     onCancel={onFormCancel}
                     busy={formBusy}
                     error={formError}
+                    monthYear={monthYear}
+                    month={month}
                   />
                 ) : (
                   <>
@@ -182,7 +270,9 @@ export default function DayPanel({
                       <span className="day-panel__time">
                         {entry.start_time}–{entry.end_time}
                       </span>
-                      <span className="day-panel__hours">{entry.effective_hours}h</span>
+                      <span className="day-panel__hours">
+                        <Metric value={entry.effective_hours} unit="h" chip />
+                      </span>
                     </div>
                     {entry.note ? (
                       <p className="day-panel__note">{entry.note}</p>
@@ -218,31 +308,15 @@ export default function DayPanel({
               </li>
             )
           })}
-
-          {draftCopy?.sourceEntry ? (
-            <DraftCopyRow
-              sourceEntry={draftCopy.sourceEntry}
-              busy={draftBusy}
-              error={draftError}
-              onSubmit={onDraftSubmit}
-              onCancel={onDraftCancel}
-            />
-          ) : null}
         </ul>
-
-        {formMode === 'create' ? (
-          <div className="day-panel__create">
-            <h3 className="day-panel__create-title">新增登记</h3>
-            <EntryForm
-              mode="create"
-              onSubmit={onFormSubmit}
-              onCancel={onFormCancel}
-              busy={formBusy}
-              error={formError}
-            />
-          </div>
-        ) : null}
       </div>
+
+      <DayPreviewModal
+        open={previewOpen}
+        dateLabel={formatDisplayDate(selectedDate)}
+        entries={entries}
+        onClose={() => setPreviewOpen(false)}
+      />
     </section>
   )
 }

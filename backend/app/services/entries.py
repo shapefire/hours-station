@@ -137,6 +137,16 @@ def delete_entry(db: Session, entry_id: UUID) -> None:
     db.flush()
 
 
+def clear_entries_by_date(db: Session, work_date: date) -> int:
+    entries = list_entries_by_date(db, work_date)
+    count = len(entries)
+    for entry in entries:
+        db.delete(entry)
+    if count:
+        db.flush()
+    return count
+
+
 def copy_day(db: Session, *, from_date: date, to_date: date) -> dict:
     sources = list_entries_by_date(db, from_date)
     if not sources:
