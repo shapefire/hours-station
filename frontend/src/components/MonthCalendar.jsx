@@ -46,14 +46,20 @@ export default function MonthCalendar({
   daySummaryByDate = {},
   registeredDays = 0,
   monthTotalHours = '0.0',
+  pasteMode = null,
+  pasteSourceDate = null,
   onSelectDate,
   onPrevMonth,
   onNextMonth,
 }) {
   const cells = buildMonthCells(viewYear, viewMonth)
+  const inPasteMode = Boolean(pasteMode)
 
   return (
-    <section className="month-calendar" aria-label="工作月历">
+    <section
+      className={`month-calendar${inPasteMode ? ' is-paste-mode' : ''}`}
+      aria-label="工作月历"
+    >
       <header className="month-calendar__header">
         <div className="month-calendar__nav">
           <button
@@ -94,11 +100,14 @@ export default function MonthCalendar({
           const summary = daySummaryByDate[cell.key]
           const hasData = Boolean(summary && summary.entry_count > 0)
           const isSelected = cell.key === selectedDate
+          const isPasteSource = inPasteMode && cell.key === pasteSourceDate
           const classNames = [
             'month-calendar__cell',
             cell.inMonth ? '' : 'is-outside',
             hasData ? 'has-data' : '',
             isSelected ? 'is-selected' : '',
+            isPasteSource ? 'is-paste-source' : '',
+            inPasteMode && !isPasteSource ? 'is-paste-target' : '',
           ]
             .filter(Boolean)
             .join(' ')
@@ -110,7 +119,7 @@ export default function MonthCalendar({
               className={classNames}
               onClick={() => onSelectDate(cell.key)}
               aria-pressed={isSelected}
-              aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}`}
+              aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}${inPasteMode ? '，粘贴目标' : ''}`}
             >
               <span className="month-calendar__day-num">{cell.day}</span>
               {isSelected && hasData ? (

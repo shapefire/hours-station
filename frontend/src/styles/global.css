@@ -178,28 +178,98 @@ textarea {
   font-size: 0.82rem;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* —— Calendar page layout —— */
 .calendar-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  position: relative;
+}
+
+.calendar-page__alerts {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.calendar-page__workspace {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
   gap: 1.25rem;
-  position: relative;
+}
+
+.paste-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--accent-soft) 75%, var(--bg0));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--ink);
+  animation: paste-bar-in 160ms ease;
+}
+
+.paste-mode-bar__text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.85rem;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.paste-mode-bar__text strong {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.calendar-page__feedback {
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--lime) 18%, var(--bg0));
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  font-size: 0.9rem;
 }
 
 .calendar-page__banner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2;
   padding: 0.55rem 0.85rem;
   border-radius: 0.45rem;
   background: color-mix(in srgb, #a94442 12%, var(--bg0));
   color: #6b2a28;
   border: 1px solid color-mix(in srgb, #a94442 28%, transparent);
   font-size: 0.9rem;
+}
+
+@keyframes paste-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .month-calendar {
@@ -327,6 +397,22 @@ textarea {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+.month-calendar.is-paste-mode .month-calendar__cell.is-paste-target {
+  cursor: copy;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.month-calendar.is-paste-mode .month-calendar__cell.is-paste-target:hover {
+  background: color-mix(in srgb, var(--lime) 22%, var(--bg0));
+  border-color: var(--accent);
+}
+
+.month-calendar__cell.is-paste-source {
+  outline: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+}
+
 .month-calendar__day-num {
   font-size: clamp(0.8rem, 1.1vw, 0.95rem);
   font-weight: 600;
@@ -376,6 +462,13 @@ textarea {
   flex-shrink: 0;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.day-panel__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .day-panel__title {
@@ -482,6 +575,39 @@ textarea {
   color: var(--accent);
 }
 
+.day-panel__item--draft {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--lime) 12%, var(--bg0));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.day-panel__draft-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.day-panel__draft-name {
+  min-width: 0;
+}
+
+.day-panel__draft-name input {
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: var(--bg0);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.day-panel__draft-error {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: #8b2e2a;
+}
+
 /* —— Entry form —— */
 .entry-form {
   display: flex;
@@ -552,6 +678,10 @@ textarea {
   }
 
   .calendar-page {
+    height: auto;
+  }
+
+  .calendar-page__workspace {
     grid-template-columns: 1fr;
     height: auto;
   }
