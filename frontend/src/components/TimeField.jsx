@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 const MINUTES = ['00', '30']
@@ -19,8 +20,54 @@ function minuteOptions(minute) {
 }
 
 /**
- * Keeps a compact HH:MM field look; opens a custom 时/分 popup.
- * Native browser pickers cannot expose a quick :30 option inside the dialog.
+ * Mobile-safe tap binder for iOS Safari + Android Chrome/WebView.
+ * - Touch/pen: fire on pointerup (click is often delayed or dropped)
+ * - Mouse/keyboard: fire on click
+ * - Debounce avoids pointerup+click double invocation
+ * Never preventDefault on pointerdown (kills click on mobile browsers).
+ */
+function useMobileTap(handler) {
+  const handlerRef = useRef(handler)
+  const lastAtRef = useRef(0)
+  const armedPtrRef = useRef(null)
+
+  useEffect(() => {
+    handlerRef.current = handler
+  }, [handler])
+
+  const fire = useCallback((event) => {
+    const now = Date.now()
+    if (now - lastAtRef.current < 450) return
+    lastAtRef.current = now
+    event?.stopPropagation?.()
+    handlerRef.current?.(event)
+  }, [])
+
+  return {
+    onPointerDown: (event) => {
+      if (!event.isPrimary) return
+      armedPtrRef.current = event.pointerId
+    },
+    onPointerUp: (event) => {
+      if (!event.isPrimary) return
+      if (armedPtrRef.current !== event.pointerId) return
+      armedPtrRef.current = null
+      if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+        fire(event)
+      }
+    },
+    onPointerCancel: () => {
+      armedPtrRef.current = null
+    },
+    onClick: (event) => {
+      fire(event)
+    },
+  }
+}
+
+/**
+ * Compact HH:MM field. Picker uses a body portal sheet so overflow parents
+ * cannot clip taps; works on phone/tablet (iOS + Android).
  */
 export default function TimeField({
   value,
@@ -34,33 +81,84 @@ export default function TimeField({
   const autoId = useId()
   const inputId = idProp || `${autoId}-time`
   const popupId = `${autoId}-popup`
-  const rootRef = useRef(null)
   const hourListRef = useRef(null)
   const minuteListRef = useRef(null)
+  const bodyLockRef = useRef(null)
+  const suppressOpenUntilRef = useRef(0)
   const [open, setOpen] = useState(false)
-  const ignoreFocusRef = useRef(false)
 
   const timeValue = toTimeValue(value) || '07:30'
   const { hour, minute } = parseTime(timeValue)
   const minutes = minuteOptions(minute)
 
+  const closePopup = useCallback(() => {
+    // Block ghost clicks / delayed clicks from reopening on mobile.
+    suppressOpenUntilRef.current = Date.now() + 600
+    setOpen(false)
+    window.setTimeout(() => {
+      const input = document.getElementById(inputId)
+      if (input instanceof HTMLElement) input.blur()
+    }, 0)
+  }, [inputId])
+
+  const openPopup = useCallback(() => {
+    if (disabled) return
+    if (Date.now() < suppressOpenUntilRef.current) return
+    setOpen(true)
+  }, [disabled])
+
+  const pickHour = useCallback(
+    (h) => {
+      onChange?.(`${h}:${minute}`)
+    },
+    [minute, onChange],
+  )
+
+  const pickMinute = useCallback(
+    (m) => {
+      onChange?.(`${hour}:${m}`)
+    },
+    [hour, onChange],
+  )
+
+  const doneTap = useMobileTap(closePopup)
+  const backdropTap = useMobileTap(closePopup)
+  const openTap = useMobileTap(openPopup)
+
   useEffect(() => {
     if (!open) return undefined
-    function onDocPointerDown(event) {
-      if (!rootRef.current?.contains(event.target)) {
-        closePopup()
-      }
+
+    const scrollY = window.scrollY || window.pageYOffset
+    bodyLockRef.current = scrollY
+    const { body, documentElement } = document
+    const prev = {
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+      htmlOverflow: documentElement.style.overflow,
     }
+    body.style.overflow = 'hidden'
+    documentElement.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+
     function onKeyDown(event) {
       if (event.key === 'Escape') closePopup()
     }
-    document.addEventListener('pointerdown', onDocPointerDown)
     document.addEventListener('keydown', onKeyDown)
+
     return () => {
-      document.removeEventListener('pointerdown', onDocPointerDown)
       document.removeEventListener('keydown', onKeyDown)
+      body.style.overflow = prev.bodyOverflow
+      body.style.position = prev.bodyPosition
+      body.style.top = prev.bodyTop
+      body.style.width = prev.bodyWidth
+      documentElement.style.overflow = prev.htmlOverflow
+      window.scrollTo(0, bodyLockRef.current ?? 0)
     }
-  }, [open])
+  }, [open, closePopup])
 
   useEffect(() => {
     if (!open) return
@@ -70,37 +168,83 @@ export default function TimeField({
     minuteEl?.scrollIntoView({ block: 'center' })
   }, [open, hour, minute])
 
-  function pick(nextHour, nextMinute) {
-    onChange?.(`${nextHour}:${nextMinute}`)
-  }
-
-  function openPopup() {
-    if (disabled) return
-    setOpen(true)
-  }
-
-  function closePopup() {
-    // iOS: closing via button inside <label> re-focuses the input and would reopen.
-    ignoreFocusRef.current = true
-    setOpen(false)
-    window.setTimeout(() => {
-      ignoreFocusRef.current = false
-    }, 400)
-    // Blur so the field does not keep focus and reopen the popup.
-    const active = document.activeElement
-    if (active instanceof HTMLElement && rootRef.current?.contains(active)) {
-      active.blur()
-    }
-  }
-
-  function stopLabelActivation(event) {
-    // Prevent parent <label> from focusing the readonly input on tap.
-    event.preventDefault()
-    event.stopPropagation()
-  }
+  const sheet =
+    open && !disabled && typeof document !== 'undefined'
+      ? createPortal(
+          <div className="time-field-layer" role="presentation">
+            <button
+              type="button"
+              className="time-field-layer__backdrop"
+              aria-label="关闭时间选择"
+              {...backdropTap}
+            />
+            <div
+              id={popupId}
+              className="time-field-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${ariaLabel}选择`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="time-field-sheet__head">
+                <strong>{ariaLabel}</strong>
+                <span className="time-field-sheet__value">{timeValue}</span>
+              </div>
+              <div className="time-field-sheet__columns">
+                <div className="time-field-sheet__col">
+                  <div className="time-field-sheet__col-label">时</div>
+                  <ul
+                    ref={hourListRef}
+                    className="time-field-sheet__list"
+                    role="listbox"
+                    aria-label="时"
+                  >
+                    {HOURS.map((h) => (
+                      <HourOption
+                        key={h}
+                        hour={h}
+                        selected={h === hour}
+                        onPick={pickHour}
+                      />
+                    ))}
+                  </ul>
+                </div>
+                <div className="time-field-sheet__col">
+                  <div className="time-field-sheet__col-label">分</div>
+                  <ul
+                    ref={minuteListRef}
+                    className="time-field-sheet__list"
+                    role="listbox"
+                    aria-label="分"
+                  >
+                    {minutes.map((m) => (
+                      <MinuteOption
+                        key={m}
+                        minute={m}
+                        selected={m === minute}
+                        onPick={pickMinute}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="time-field-sheet__actions">
+                <button
+                  type="button"
+                  className="btn btn--primary time-field-sheet__done"
+                  {...doneTap}
+                >
+                  完成
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null
 
   return (
-    <div className="time-field" ref={rootRef}>
+    <div className="time-field">
       <input
         id={inputId}
         type="text"
@@ -112,18 +256,12 @@ export default function TimeField({
         disabled={disabled}
         inputMode="none"
         autoComplete="off"
+        enterKeyHint="done"
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
-        onClick={(event) => {
-          event.preventDefault()
-          openPopup()
-        }}
-        onFocus={() => {
-          if (ignoreFocusRef.current || disabled) return
-          openPopup()
-        }}
+        {...(disabled ? {} : openTap)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -131,83 +269,45 @@ export default function TimeField({
           }
         }}
       />
-
-      {open && !disabled ? (
-        <div
-          id={popupId}
-          className="time-field__popup"
-          role="dialog"
-          aria-label={`${ariaLabel}选择`}
-        >
-          <div className="time-field__columns">
-            <div className="time-field__col">
-              <div className="time-field__col-label">时</div>
-              <ul ref={hourListRef} className="time-field__list" role="listbox" aria-label="时">
-                {HOURS.map((h) => (
-                  <li key={h} role="option" aria-selected={h === hour}>
-                    <button
-                      type="button"
-                      className={
-                        h === hour
-                          ? 'time-field__option time-field__option--active'
-                          : 'time-field__option'
-                      }
-                      onPointerDown={stopLabelActivation}
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        pick(h, minute)
-                      }}
-                    >
-                      {h}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="time-field__col">
-              <div className="time-field__col-label">分</div>
-              <ul ref={minuteListRef} className="time-field__list" role="listbox" aria-label="分">
-                {minutes.map((m) => (
-                  <li key={m} role="option" aria-selected={m === minute}>
-                    <button
-                      type="button"
-                      className={
-                        m === minute
-                          ? 'time-field__option time-field__option--active'
-                          : 'time-field__option'
-                      }
-                      onPointerDown={stopLabelActivation}
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        pick(hour, m)
-                        closePopup()
-                      }}
-                    >
-                      {m}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="time-field__popup-actions">
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onPointerDown={stopLabelActivation}
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                closePopup()
-              }}
-            >
-              完成
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {sheet}
     </div>
+  )
+}
+
+function HourOption({ hour, selected, onPick }) {
+  const tap = useMobileTap(() => onPick(hour))
+  return (
+    <li role="option" aria-selected={selected}>
+      <button
+        type="button"
+        className={
+          selected
+            ? 'time-field-sheet__option time-field-sheet__option--active'
+            : 'time-field-sheet__option'
+        }
+        {...tap}
+      >
+        {hour}
+      </button>
+    </li>
+  )
+}
+
+function MinuteOption({ minute, selected, onPick }) {
+  const tap = useMobileTap(() => onPick(minute))
+  return (
+    <li role="option" aria-selected={selected}>
+      <button
+        type="button"
+        className={
+          selected
+            ? 'time-field-sheet__option time-field-sheet__option--active'
+            : 'time-field-sheet__option'
+        }
+        {...tap}
+      >
+        {minute}
+      </button>
+    </li>
   )
 }
