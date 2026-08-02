@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import StatsPeopleTable from '../components/StatsPeopleTable.jsx'
 
@@ -19,20 +19,26 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [tableKey, setTableKey] = useState(0)
+  const fetchSeqRef = useRef(0)
 
   const refreshStats = useCallback(async () => {
+    const seq = ++fetchSeqRef.current
     try {
       setLoading(true)
       setError(null)
       const data = await api.get(
         `/api/stats/monthly?year=${viewYear}&month=${viewMonth}`,
       )
+      if (seq !== fetchSeqRef.current) return
       setStats(data)
     } catch (err) {
+      if (seq !== fetchSeqRef.current) return
       setStats(null)
       setError(err.message || '加载月度统计失败')
     } finally {
-      setLoading(false)
+      if (seq === fetchSeqRef.current) {
+        setLoading(false)
+      }
     }
   }, [viewYear, viewMonth])
 

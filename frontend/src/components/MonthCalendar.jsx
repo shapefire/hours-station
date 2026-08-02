@@ -119,7 +119,7 @@ export default function MonthCalendar({
               className={classNames}
               onClick={() => onSelectDate(cell.key)}
               aria-pressed={isSelected}
-              aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}${inPasteMode ? '，粘贴目标' : ''}`}
+              aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}${inPasteMode && !isPasteSource ? '，粘贴目标' : ''}`}
             >
               <span className="month-calendar__day-num">{cell.day}</span>
               {isSelected && hasData ? (

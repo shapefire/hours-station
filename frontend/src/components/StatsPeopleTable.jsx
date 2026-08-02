@@ -96,7 +96,7 @@ export default function StatsPeopleTable({ year, month, people }) {
           [employeeId]: err.message || '加载逐日明细失败',
         }))
       } finally {
-        setLoadingId(null)
+        setLoadingId((current) => (current === employeeId ? null : current))
       }
     },
     [daysByEmployee, expected, month, year],
