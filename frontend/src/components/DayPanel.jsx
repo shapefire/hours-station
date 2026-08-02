@@ -168,7 +168,7 @@ export default function DayPanel({
   return (
     <section className="day-panel" aria-label="日明细">
       <header className="day-panel__header">
-        <div>
+        <div className="day-panel__header-main">
           <h2 className="day-panel__title">{formatDisplayDate(selectedDate)}</h2>
           <p className="day-panel__stats">
             <Metric value={peopleCount} unit="人" chip /> · 合计{' '}
