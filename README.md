@@ -57,6 +57,26 @@ docker compose down -v         # 停服务并清空数据库卷
 
 > 一键部署时 Postgres **不映射到宿主机**；仅容器内网 `db:5432`。本地开发若需连库，见下方「本地启动」。
 
+### 远程服务器更新部署
+
+服务器上已 clone 本仓库并完成首次 `docker compose up` 后，之后每次发版执行仓库根目录脚本即可（拉取最新代码 → 重建镜像 → 重启服务）：
+
+```bash
+cd /path/to/hours-station
+chmod +x deploy.sh          # 首次需要
+./deploy.sh
+```
+
+默认跟踪远程 `main`。指定分支：
+
+```bash
+DEPLOY_BRANCH=feat/hours-station ./deploy.sh
+```
+
+脚本会：`git fetch` → 硬同步到 `origin/$BRANCH` → `docker compose up -d --build --remove-orphans` → 清理悬空镜像 → 打印 `ps`。数据卷 `pgdata` 会保留。
+
+> 注意：`deploy.sh` 使用 `git reset --hard`，服务器上对该仓库的本地未提交改动会被覆盖。
+
 ## 本地启动（Windows）
 
 ### 1. 数据库
