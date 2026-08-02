@@ -4,6 +4,7 @@ import EmployeeNameField from './EmployeeNameField.jsx'
 import TimeField from './TimeField.jsx'
 import DayPreviewModal from './DayPreviewModal.jsx'
 import Metric from './Metric.jsx'
+import HoursBreakdown from './HoursBreakdown.jsx'
 
 function formatDisplayDate(dateKey) {
   if (!dateKey) return '—'
@@ -94,6 +95,7 @@ function DraftCopyRow({
             />
           </div>
         </div>
+        <HoursBreakdown startTime={startTime} endTime={endTime} />
         <label className="day-panel__draft-field">
           <span>备注</span>
           <input

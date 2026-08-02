@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import EmployeeNameField from './EmployeeNameField.jsx'
 import TimeField from './TimeField.jsx'
+import HoursBreakdown from './HoursBreakdown.jsx'
 
 const EMPTY = {
   name: '',
@@ -96,6 +97,8 @@ export default function EntryForm({
           />
         </div>
       </div>
+
+      <HoursBreakdown startTime={form.start_time} endTime={form.end_time} />
 
       <label className="entry-form__field">
         <span>备注</span>

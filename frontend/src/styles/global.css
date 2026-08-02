@@ -1052,6 +1052,42 @@ textarea {
   cursor: not-allowed;
 }
 
+.hours-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg0));
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.hours-breakdown--invalid {
+  color: #8b2e2a;
+  background: color-mix(in srgb, #a94442 8%, var(--bg0));
+  border-color: color-mix(in srgb, #8b2e2a 28%, transparent);
+}
+
+.hours-breakdown__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.hours-breakdown__item--effective {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.hours-breakdown__sep {
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
 .time-field {
   display: flex;
   align-items: center;
