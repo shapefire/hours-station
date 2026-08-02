@@ -73,7 +73,7 @@ function DraftCopyRow({
           />
         </label>
         <div className="day-panel__draft-times">
-          <label className="day-panel__draft-field">
+          <div className="day-panel__draft-field">
             <span>开始</span>
             <TimeField
               value={startTime}
@@ -82,8 +82,8 @@ function DraftCopyRow({
               disabled={busy}
               aria-label="开始时间"
             />
-          </label>
-          <label className="day-panel__draft-field">
+          </div>
+          <div className="day-panel__draft-field">
             <span>结束</span>
             <TimeField
               value={endTime}
@@ -92,7 +92,7 @@ function DraftCopyRow({
               disabled={busy}
               aria-label="结束时间"
             />
-          </label>
+          </div>
         </div>
         <label className="day-panel__draft-field">
           <span>备注</span>

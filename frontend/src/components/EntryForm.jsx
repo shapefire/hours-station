@@ -73,7 +73,7 @@ export default function EntryForm({
       </div>
 
       <div className="entry-form__row entry-form__row--times">
-        <label className="entry-form__field">
+        <div className="entry-form__field">
           <span>开始</span>
           <TimeField
             name="start_time"
@@ -83,8 +83,8 @@ export default function EntryForm({
             disabled={busy}
             aria-label="开始时间"
           />
-        </label>
-        <label className="entry-form__field">
+        </div>
+        <div className="entry-form__field">
           <span>结束</span>
           <TimeField
             name="end_time"
@@ -94,7 +94,7 @@ export default function EntryForm({
             disabled={busy}
             aria-label="结束时间"
           />
-        </label>
+        </div>
       </div>
 
       <label className="entry-form__field">

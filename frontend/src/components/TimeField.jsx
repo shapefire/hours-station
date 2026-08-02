@@ -38,6 +38,7 @@ export default function TimeField({
   const hourListRef = useRef(null)
   const minuteListRef = useRef(null)
   const [open, setOpen] = useState(false)
+  const ignoreFocusRef = useRef(false)
 
   const timeValue = toTimeValue(value) || '07:30'
   const { hour, minute } = parseTime(timeValue)
@@ -47,11 +48,11 @@ export default function TimeField({
     if (!open) return undefined
     function onDocPointerDown(event) {
       if (!rootRef.current?.contains(event.target)) {
-        setOpen(false)
+        closePopup()
       }
     }
     function onKeyDown(event) {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') closePopup()
     }
     document.addEventListener('pointerdown', onDocPointerDown)
     document.addEventListener('keydown', onKeyDown)
@@ -78,6 +79,26 @@ export default function TimeField({
     setOpen(true)
   }
 
+  function closePopup() {
+    // iOS: closing via button inside <label> re-focuses the input and would reopen.
+    ignoreFocusRef.current = true
+    setOpen(false)
+    window.setTimeout(() => {
+      ignoreFocusRef.current = false
+    }, 400)
+    // Blur so the field does not keep focus and reopen the popup.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && rootRef.current?.contains(active)) {
+      active.blur()
+    }
+  }
+
+  function stopLabelActivation(event) {
+    // Prevent parent <label> from focusing the readonly input on tap.
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   return (
     <div className="time-field" ref={rootRef}>
       <input
@@ -95,8 +116,14 @@ export default function TimeField({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
-        onClick={openPopup}
-        onFocus={openPopup}
+        onClick={(event) => {
+          event.preventDefault()
+          openPopup()
+        }}
+        onFocus={() => {
+          if (ignoreFocusRef.current || disabled) return
+          openPopup()
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -106,7 +133,12 @@ export default function TimeField({
       />
 
       {open && !disabled ? (
-        <div id={popupId} className="time-field__popup" role="dialog" aria-label={`${ariaLabel}选择`}>
+        <div
+          id={popupId}
+          className="time-field__popup"
+          role="dialog"
+          aria-label={`${ariaLabel}选择`}
+        >
           <div className="time-field__columns">
             <div className="time-field__col">
               <div className="time-field__col-label">时</div>
@@ -120,7 +152,12 @@ export default function TimeField({
                           ? 'time-field__option time-field__option--active'
                           : 'time-field__option'
                       }
-                      onClick={() => pick(h, minute)}
+                      onPointerDown={stopLabelActivation}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        pick(h, minute)
+                      }}
                     >
                       {h}
                     </button>
@@ -140,9 +177,12 @@ export default function TimeField({
                           ? 'time-field__option time-field__option--active'
                           : 'time-field__option'
                       }
-                      onClick={() => {
+                      onPointerDown={stopLabelActivation}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
                         pick(hour, m)
-                        setOpen(false)
+                        closePopup()
                       }}
                     >
                       {m}
@@ -153,7 +193,16 @@ export default function TimeField({
             </div>
           </div>
           <div className="time-field__popup-actions">
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onPointerDown={stopLabelActivation}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                closePopup()
+              }}
+            >
               完成
             </button>
           </div>
