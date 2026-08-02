@@ -17,31 +17,53 @@
 
 ## 环境要求
 
-- Python 3.11+
-- Node.js 20+
-- PostgreSQL 16（本地实例或 Docker Compose）
+- **一键部署：** Docker + Docker Compose
+- **本地开发：** Python 3.11+、Node.js 20+、PostgreSQL 16
 
-数据库约定（与 `docker-compose.yml` / `backend/.env.example` 一致）：
+数据库约定（与 `docker-compose.yml` / `.env.example` / `backend/.env.example` 一致）：
 
 | 项 | 值 |
 | --- | --- |
 | 用户 / 密码 | `hours` / `hours` |
 | 库名 | `hours_station` |
-| 连接串 | `postgresql+psycopg://hours:hours@localhost:5432/hours_station` |
+| 连接串（本机开发） | `postgresql+psycopg://hours:hours@localhost:5432/hours_station` |
 
 本地若使用其它账号，在 `backend/.env` 中设置 `DATABASE_URL`（密码中的 `@` 需 URL 编码为 `%40`）。
 
-## 本地启动（Windows）
+## Docker 一键部署（推荐）
 
-### 1. 数据库（二选一）
-
-**可选 — Docker Compose：**
+同机构建并启动 **Postgres + 后端 + Nginx 前端**；浏览器只访问一个端口（默认 **8810**），`/api` 由 Nginx 反代。
 
 ```powershell
-docker compose up -d
+# 在仓库实现目录（含 docker-compose.yml）
+cd .worktrees/hours-station   # 若已在该目录可省略
+
+copy .env.example .env        # 可选；改端口/密码时再编辑
+docker compose up -d --build
 ```
 
-**或本地 Postgres：** 创建用户/密码/库 `hours` / `hours` / `hours_station`，并确保监听 `5432`。
+打开 [http://localhost:8810](http://localhost:8810)。
+
+常用运维：
+
+```powershell
+docker compose ps
+docker compose logs -f
+docker compose down            # 停服务（保留数据卷）
+docker compose down -v         # 停服务并清空数据库卷
+```
+
+改对外端口：编辑 `.env` 中 `APP_PORT`（同时把 `CORS_ORIGINS` 改成对应地址），再 `docker compose up -d`。
+
+> 一键部署时 Postgres **不映射到宿主机**；仅容器内网 `db:5432`。本地开发若需连库，见下方「本地启动」。
+
+## 本地启动（Windows）
+
+### 1. 数据库
+
+使用本机 Postgres，或临时只起数据库容器（需自行在 `docker-compose.yml` 为 `db` 增加 `ports: ["5432:5432"]`，或单独跑 Postgres）。
+
+创建用户/密码/库 `hours` / `hours` / `hours_station`，并确保监听 `5432`。
 
 ### 2. 后端
 
@@ -99,7 +121,7 @@ npm run build
 
 ## 手动 E2E 验收清单
 
-启动前后端后，在浏览器中逐项确认：
+Docker 一键部署后打开 `http://localhost:8810`，或本地开发启动前后端后，在浏览器中逐项确认：
 
 - [ ] **登记**：在月历进入某日，新增员工工时记录并成功保存
 - [ ] **唯一性**：同一员工同一天不可重复登记（应有明确错误提示）
