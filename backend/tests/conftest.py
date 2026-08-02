@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
-from app.models import Employee, WorkEntry  # noqa: F401
+from app.models import Employee, NotePreset, WorkEntry  # noqa: F401
 from app.main import app
 
 TEST_DATABASE_URL = "postgresql+psycopg://hours:hours@localhost:5432/hours_station_test"

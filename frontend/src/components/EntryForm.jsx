@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import EmployeeNameField from './EmployeeNameField.jsx'
 import TimeField from './TimeField.jsx'
 import HoursBreakdown from './HoursBreakdown.jsx'
+import NoteField from './NoteField.jsx'
 
 const EMPTY = {
   name: '',
@@ -102,13 +103,11 @@ export default function EntryForm({
 
       <label className="entry-form__field">
         <span>备注</span>
-        <input
-          type="text"
-          name="note"
+        <NoteField
           value={form.note}
-          onChange={(e) => updateField('note', e.target.value)}
+          onChange={(note) => updateField('note', note)}
           disabled={busy}
-          placeholder="可选"
+          placeholder="可选，选择预设或输入"
         />
       </label>
 

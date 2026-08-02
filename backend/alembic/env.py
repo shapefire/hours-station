@@ -6,7 +6,7 @@ from alembic import context
 
 from app.config import get_settings
 from app.db import Base
-from app.models import Employee, WorkEntry  # noqa: F401
+from app.models import Employee, NotePreset, WorkEntry  # noqa: F401
 
 config = context.config
 

@@ -5,6 +5,7 @@ import TimeField from './TimeField.jsx'
 import DayPreviewModal from './DayPreviewModal.jsx'
 import Metric from './Metric.jsx'
 import HoursBreakdown from './HoursBreakdown.jsx'
+import NoteField from './NoteField.jsx'
 
 function formatDisplayDate(dateKey) {
   if (!dateKey) return '—'
@@ -98,13 +99,12 @@ function DraftCopyRow({
         <HoursBreakdown startTime={startTime} endTime={endTime} />
         <label className="day-panel__draft-field">
           <span>备注</span>
-          <input
-            type="text"
+          <NoteField
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={setNote}
             disabled={busy}
             maxLength={500}
-            placeholder="可选"
+            placeholder="可选，选择预设或输入"
           />
         </label>
         {error ? <p className="day-panel__draft-error">{error}</p> : null}

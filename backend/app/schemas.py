@@ -110,3 +110,15 @@ class StatsDayOut(BaseModel):
 
 class StatsEmployeeDaysOut(BaseModel):
     days: list[StatsDayOut]
+
+
+class NotePresetCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=200)
+
+
+class NotePresetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    text: str = Field(..., max_length=200)
+    sort_order: int
