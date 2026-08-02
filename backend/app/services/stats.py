@@ -1,0 +1,125 @@
+import calendar
+from collections import defaultdict
+from datetime import date, timedelta
+from decimal import Decimal
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
+
+from app.models import Employee, WorkEntry
+from app.services.hours import effective_hours
+
+
+def _format_hours(value: Decimal) -> str:
+    return f"{value:.1f}"
+
+
+def _month_range(year: int, month: int) -> tuple[date, date, int]:
+    days_in_month = calendar.monthrange(year, month)[1]
+    month_start = date(year, month, 1)
+    if month == 12:
+        month_end = date(year + 1, 1, 1)
+    else:
+        month_end = date(year, month + 1, 1)
+    return month_start, month_end, days_in_month
+
+
+def monthly_stats(db: Session, *, year: int, month: int) -> dict:
+    month_start, month_end, days_in_month = _month_range(year, month)
+    entries = db.scalars(
+        select(WorkEntry)
+        .options(joinedload(WorkEntry.employee))
+        .where(WorkEntry.work_date >= month_start, WorkEntry.work_date < month_end)
+    ).unique().all()
+
+    by_employee: dict[UUID, list[WorkEntry]] = defaultdict(list)
+    for entry in entries:
+        by_employee[entry.employee_id].append(entry)
+
+    people: list[dict] = []
+    month_total = Decimal("0")
+    attendance_person_days = 0
+
+    for employee_id, emp_entries in by_employee.items():
+        work_dates = {e.work_date for e in emp_entries}
+        attendance_days = len(work_dates)
+        total = sum(
+            (effective_hours(e.start_time, e.end_time) for e in emp_entries),
+            Decimal("0"),
+        )
+        month_total += total
+        attendance_person_days += attendance_days
+        avg_hours = _format_hours(total / attendance_days) if attendance_days else None
+        people.append(
+            {
+                "employee_id": employee_id,
+                "name": emp_entries[0].employee.name,
+                "attendance_days": attendance_days,
+                "rest_days": days_in_month - attendance_days,
+                "total_hours": _format_hours(total),
+                "avg_hours": avg_hours,
+            }
+        )
+
+    people.sort(key=lambda p: Decimal(p["total_hours"]), reverse=True)
+
+    return {
+        "year": year,
+        "month": month,
+        "total_hours": _format_hours(month_total),
+        "employee_count": len(people),
+        "attendance_person_days": attendance_person_days,
+        "people": people,
+    }
+
+
+def employee_month_days(
+    db: Session,
+    *,
+    employee_id: UUID,
+    year: int,
+    month: int,
+) -> dict:
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise KeyError("员工不存在")
+
+    month_start, month_end, days_in_month = _month_range(year, month)
+    entries = db.scalars(
+        select(WorkEntry).where(
+            WorkEntry.employee_id == employee_id,
+            WorkEntry.work_date >= month_start,
+            WorkEntry.work_date < month_end,
+        )
+    ).all()
+    by_date = {e.work_date: e for e in entries}
+
+    days: list[dict] = []
+    for offset in range(days_in_month):
+        day = month_start + timedelta(days=offset)
+        entry = by_date.get(day)
+        if entry is None:
+            days.append(
+                {
+                    "date": day,
+                    "status": "rest",
+                    "start_time": None,
+                    "end_time": None,
+                    "effective_hours": None,
+                }
+            )
+        else:
+            days.append(
+                {
+                    "date": day,
+                    "status": "work",
+                    "start_time": entry.start_time,
+                    "end_time": entry.end_time,
+                    "effective_hours": _format_hours(
+                        effective_hours(entry.start_time, entry.end_time)
+                    ),
+                }
+            )
+
+    return {"days": days}

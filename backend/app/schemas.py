@@ -72,3 +72,39 @@ class CalendarMonthOut(BaseModel):
     registered_days: int
     month_total_hours: str
     days: list[CalendarDayOut]
+
+
+class StatsPersonOut(BaseModel):
+    employee_id: UUID
+    name: str
+    attendance_days: int
+    rest_days: int
+    total_hours: str
+    avg_hours: str | None
+
+
+class StatsMonthlyOut(BaseModel):
+    year: int
+    month: int
+    total_hours: str
+    employee_count: int
+    attendance_person_days: int
+    people: list[StatsPersonOut]
+
+
+class StatsDayOut(BaseModel):
+    date: date
+    status: str
+    start_time: time | None
+    end_time: time | None
+    effective_hours: str | None
+
+    @field_serializer("start_time", "end_time")
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")
+
+
+class StatsEmployeeDaysOut(BaseModel):
+    days: list[StatsDayOut]
