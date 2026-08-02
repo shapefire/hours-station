@@ -805,8 +805,8 @@ textarea {
   font: inherit;
 }
 
-.day-panel__draft-field .time-field__input {
-  padding: 0.35rem 0.5rem;
+.day-panel__draft-field .time-field__select {
+  padding: 0.35rem 0.4rem;
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
@@ -1053,166 +1053,56 @@ textarea {
 }
 
 .time-field {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   min-width: 0;
 }
 
-.time-field__input {
-  width: 100%;
+.time-field__select {
   min-width: 0;
-  padding: 0.4rem 0.55rem;
   border-radius: 0.4rem;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   background: var(--bg0);
   color: var(--ink);
   font: inherit;
   font-variant-numeric: tabular-nums;
+  padding: 0.4rem 0.35rem;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 12px) calc(50% - 2px),
+    calc(100% - 7px) calc(50% - 2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 1.4rem;
+  touch-action: manipulation;
 }
 
-.time-field__input:disabled {
+.time-field__select--hour {
+  flex: 1 1 45%;
+}
+
+.time-field__select--minute {
+  flex: 1 1 45%;
+}
+
+.time-field__select:disabled {
   opacity: 0.7;
-  background: var(--bg1);
+  background-color: var(--bg1);
   cursor: not-allowed;
 }
 
-.time-field-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0.75rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
-}
-
-.time-field-layer__backdrop {
-  position: absolute;
-  inset: 0;
-  border: none;
-  margin: 0;
-  padding: 0;
-  background: color-mix(in srgb, #1c2416 45%, transparent);
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.time-field-sheet {
-  position: relative;
-  z-index: 1;
-  width: min(24rem, 100%);
-  max-height: min(70vh, 28rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.85rem 0.85rem 0.75rem;
-  border-radius: 0.85rem 0.85rem 0.65rem 0.65rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-  background: var(--bg0);
-  box-shadow: 0 -8px 28px rgba(28, 36, 22, 0.18);
-}
-
-.time-field-sheet__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.95rem;
-  color: var(--ink);
-}
-
-.time-field-sheet__value {
-  font-family: var(--font-display);
+.time-field__sep {
+  flex: 0 0 auto;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--metric);
-}
-
-.time-field-sheet__columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  min-height: 0;
-  flex: 1;
-}
-
-.time-field-sheet__col-label {
-  text-align: center;
-  font-size: 0.75rem;
   color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-
-.time-field-sheet__list {
-  list-style: none;
-  margin: 0;
-  padding: 0.2rem;
-  max-height: min(40vh, 14rem);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
-  background: color-mix(in srgb, var(--bg1) 65%, var(--bg0));
-}
-
-.time-field-sheet__list li {
-  margin: 0;
-}
-
-.time-field-sheet__option {
-  width: 100%;
-  border: none;
-  border-radius: 0.35rem;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 1.05rem;
-  font-variant-numeric: tabular-nums;
-  padding: 0.55rem 0.4rem;
-  cursor: pointer;
-  text-align: center;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-.time-field-sheet__option:hover,
-.time-field-sheet__option:active {
-  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
-}
-
-.time-field-sheet__option--active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.time-field-sheet__actions {
-  display: flex;
-  justify-content: stretch;
-  padding-top: 0.15rem;
-}
-
-.time-field-sheet__done {
-  width: 100%;
-  min-height: 2.75rem;
-  font-size: 1rem;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-@media (min-width: 900px) {
-  .time-field-layer {
-    align-items: center;
-    padding: 1.25rem;
-  }
-
-  .time-field-sheet {
-    border-radius: 0.75rem;
-    max-height: min(75vh, 30rem);
-  }
+  line-height: 1;
 }
 
 .entry-form__error {
