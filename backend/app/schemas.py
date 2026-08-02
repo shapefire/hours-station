@@ -19,6 +19,23 @@ class EntryUpdate(BaseModel):
     note: str | None = None
 
 
+class CopyDayIn(BaseModel):
+    from_date: date
+    to_date: date
+
+
+class CopyDayOut(BaseModel):
+    copied: int
+    skipped: int
+    skipped_names: list[str]
+
+
+class CopyPersonIn(BaseModel):
+    source_entry_id: UUID
+    name: str
+    date: date
+
+
 class EntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

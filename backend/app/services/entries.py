@@ -135,3 +135,64 @@ def delete_entry(db: Session, entry_id: UUID) -> None:
         raise KeyError("排班不存在")
     db.delete(entry)
     db.flush()
+
+
+def copy_day(db: Session, *, from_date: date, to_date: date) -> dict:
+    sources = list_entries_by_date(db, from_date)
+    if not sources:
+        raise ValueError("当日无安排可复制")
+
+    copied = 0
+    skipped_names: list[str] = []
+    for source in sources:
+        exists = db.scalars(
+            select(WorkEntry).where(
+                WorkEntry.work_date == to_date,
+                WorkEntry.employee_id == source.employee_id,
+            )
+        ).one_or_none()
+        if exists is not None:
+            skipped_names.append(source.employee.name)
+            continue
+
+        entry = WorkEntry(
+            work_date=to_date,
+            employee_id=source.employee_id,
+            start_time=source.start_time,
+            end_time=source.end_time,
+            note=source.note,
+        )
+        try:
+            with db.begin_nested():
+                db.add(entry)
+                db.flush()
+        except IntegrityError:
+            skipped_names.append(source.employee.name)
+            continue
+        copied += 1
+
+    return {
+        "copied": copied,
+        "skipped": len(skipped_names),
+        "skipped_names": skipped_names,
+    }
+
+
+def copy_person(
+    db: Session,
+    *,
+    source_entry_id: UUID,
+    name: str,
+    work_date: date,
+) -> WorkEntry:
+    source = _get_entry(db, source_entry_id)
+    if source is None:
+        raise KeyError("排班不存在")
+    return create_entry(
+        db,
+        work_date=work_date,
+        name=name,
+        start_time=source.start_time,
+        end_time=source.end_time,
+        note=source.note,
+    )

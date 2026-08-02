@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import EntryCreate, EntryOut, EntryUpdate
+from app.schemas import CopyDayIn, CopyDayOut, CopyPersonIn, EntryCreate, EntryOut, EntryUpdate
 from app.services import entries as entries_service
 
 router = APIRouter(prefix="/api/entries", tags=["entries"])
@@ -50,6 +50,33 @@ def list_entries(
 ):
     entries = entries_service.list_entries_by_date(db, work_date)
     return [EntryOut.model_validate(entries_service.entry_to_dict(e)) for e in entries]
+
+
+@router.post("/copy-day", response_model=CopyDayOut)
+def copy_day(payload: CopyDayIn, db: Session = Depends(get_db)):
+    try:
+        result = entries_service.copy_day(
+            db,
+            from_date=payload.from_date,
+            to_date=payload.to_date,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _http_from_domain(exc) from exc
+    return CopyDayOut.model_validate(result)
+
+
+@router.post("/copy-person", response_model=EntryOut, status_code=status.HTTP_201_CREATED)
+def copy_person(payload: CopyPersonIn, db: Session = Depends(get_db)):
+    try:
+        entry = entries_service.copy_person(
+            db,
+            source_entry_id=payload.source_entry_id,
+            name=payload.name,
+            work_date=payload.date,
+        )
+    except (ValueError, LookupError, KeyError) as exc:
+        raise _http_from_domain(exc) from exc
+    return EntryOut.model_validate(entries_service.entry_to_dict(entry))
 
 
 @router.patch("/{entry_id}", response_model=EntryOut)
