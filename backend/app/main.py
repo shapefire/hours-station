@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import employees, entries
+from app.routers import calendar, employees, entries
 
 settings = get_settings()
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
@@ -17,3 +17,4 @@ app.add_middleware(
 )
 app.include_router(entries.router)
 app.include_router(employees.router)
+app.include_router(calendar.router)

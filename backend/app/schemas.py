@@ -41,3 +41,17 @@ class EmployeeOut(BaseModel):
 
     id: UUID
     name: str = Field(..., max_length=64)
+
+
+class CalendarDayOut(BaseModel):
+    date: date
+    entry_count: int
+    total_effective_hours: str
+
+
+class CalendarMonthOut(BaseModel):
+    year: int
+    month: int
+    registered_days: int
+    month_total_hours: str
+    days: list[CalendarDayOut]
