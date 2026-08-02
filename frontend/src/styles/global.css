@@ -666,6 +666,244 @@ textarea {
   margin-top: 0.15rem;
 }
 
+/* —— Stats page —— */
+.stats-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.stats-page__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.stats-page__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.stats-page__title {
+  margin: 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.stats-page__subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.stats-page__banner {
+  flex-shrink: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, #a94442 12%, var(--bg0));
+  color: #6b2a28;
+  border: 1px solid color-mix(in srgb, #a94442 28%, transparent);
+  font-size: 0.9rem;
+}
+
+.stats-page__status,
+.stats-page__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.stats-kpi {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.stats-kpi__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--bg0) 82%, var(--accent-soft));
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.stats-kpi__label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+
+.stats-kpi__value {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.stats-page__table-section {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.15rem 0.1rem 0.5rem;
+}
+
+.stats-people__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-people__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  background: color-mix(in srgb, var(--bg0) 92%, var(--bg1));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.stats-people__col-expand {
+  width: 2rem;
+}
+
+.stats-people__table tbody td {
+  padding: 0.65rem 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  vertical-align: middle;
+}
+
+.stats-people__table tbody tr.is-expanded td {
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--bg0));
+  border-bottom-color: transparent;
+}
+
+.stats-people__detail-row td {
+  padding: 0 0.65rem 0.85rem;
+  background: color-mix(in srgb, var(--accent-soft) 22%, var(--bg0));
+}
+
+.stats-people__expand-btn,
+.stats-people__name-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.stats-people__expand-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.stats-people__name-btn {
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+
+.stats-people__name-btn:hover {
+  color: var(--accent);
+}
+
+.stats-people__num {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.stats-people__hours {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.stats-people__detail {
+  padding-left: 0.35rem;
+  animation: stats-detail-in 160ms ease;
+}
+
+@keyframes stats-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stats-days__warn {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  color: #6b2a28;
+}
+
+.stats-days__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.stats-days__table th {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.stats-days__table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 8%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-days__row--rest td {
+  color: var(--rest);
+  background: color-mix(in srgb, var(--rest) 8%, transparent);
+}
+
+.stats-days__rest-label {
+  font-weight: 600;
+  color: var(--rest);
+}
+
+.stats-days__time {
+  color: var(--muted);
+}
+
+.stats-days__hours {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.stats-days__row--rest .stats-days__hours {
+  color: var(--rest);
+  font-weight: 500;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     height: auto;
@@ -698,6 +936,19 @@ textarea {
   .day-panel__body {
     overflow: visible;
   }
+
+  .stats-page {
+    overflow: visible;
+    height: auto;
+  }
+
+  .stats-page__table-section {
+    overflow: visible;
+  }
+
+  .stats-kpi {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -722,5 +973,21 @@ textarea {
   .month-calendar__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .stats-page__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stats-people__table thead th:nth-child(4),
+  .stats-people__table thead th:nth-child(6),
+  .stats-people__table tbody td:nth-child(4),
+  .stats-people__table tbody td:nth-child(6) {
+    display: none;
+  }
+
+  .stats-people__detail-row td {
+    display: table-cell;
   }
 }
