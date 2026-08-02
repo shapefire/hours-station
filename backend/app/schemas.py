@@ -1,4 +1,5 @@
 from datetime import date, time
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
@@ -6,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 class EntryCreate(BaseModel):
     work_date: date
-    name: str
+    name: str = Field(..., min_length=1, max_length=64)
     start_time: time
     end_time: time
     note: str | None = None
@@ -32,7 +33,7 @@ class CopyDayOut(BaseModel):
 
 class CopyPersonIn(BaseModel):
     source_entry_id: UUID
-    name: str
+    name: str = Field(..., min_length=1, max_length=64)
     date: date
 
 
@@ -94,7 +95,7 @@ class StatsMonthlyOut(BaseModel):
 
 class StatsDayOut(BaseModel):
     date: date
-    status: str
+    status: Literal["work", "rest"]
     start_time: time | None
     end_time: time | None
     effective_hours: str | None

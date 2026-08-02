@@ -87,3 +87,12 @@ def test_employee_month_days_covers_full_month_with_rest(client):
     assert rest_count == 30
     work_count = sum(1 for d in days if d["status"] == "work")
     assert work_count == 1
+
+
+def test_employee_month_days_404_unknown_employee(client):
+    r = client.get(
+        "/api/stats/monthly/00000000-0000-0000-0000-000000000000/days",
+        params={"year": 2026, "month": 8},
+    )
+    assert r.status_code == 404
+    assert "员工" in r.json()["detail"]

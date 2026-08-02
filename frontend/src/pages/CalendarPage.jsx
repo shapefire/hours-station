@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import DayPanel from '../components/DayPanel.jsx'
 import MonthCalendar, { toDateKey } from '../components/MonthCalendar.jsx'
@@ -66,6 +66,8 @@ export default function CalendarPage() {
   const [draftBusy, setDraftBusy] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [pasteBusy, setPasteBusy] = useState(false)
+  const calendarFetchSeqRef = useRef(0)
+  const entriesFetchSeqRef = useRef(0)
 
   const daySummaryByDate = useMemo(() => {
     const map = {}
@@ -76,27 +78,35 @@ export default function CalendarPage() {
   }, [calendar])
 
   const refreshCalendar = useCallback(async () => {
+    const seq = ++calendarFetchSeqRef.current
     try {
       setCalendarError(null)
       const data = await api.get(`/api/calendar?year=${viewYear}&month=${viewMonth}`)
+      if (seq !== calendarFetchSeqRef.current) return
       setCalendar(data)
     } catch (err) {
+      if (seq !== calendarFetchSeqRef.current) return
       setCalendarError(err.message || '加载月历失败')
     }
   }, [viewYear, viewMonth])
 
   const refreshEntries = useCallback(async () => {
     if (!selectedDate) return
+    const seq = ++entriesFetchSeqRef.current
     try {
       setEntriesLoading(true)
       setEntriesError(null)
       const data = await api.get(`/api/entries?date=${selectedDate}`)
+      if (seq !== entriesFetchSeqRef.current) return
       setEntries(Array.isArray(data) ? data : [])
     } catch (err) {
+      if (seq !== entriesFetchSeqRef.current) return
       setEntries([])
       setEntriesError(err.message || '加载日明细失败')
     } finally {
-      setEntriesLoading(false)
+      if (seq === entriesFetchSeqRef.current) {
+        setEntriesLoading(false)
+      }
     }
   }, [selectedDate])
 

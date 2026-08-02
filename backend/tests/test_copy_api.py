@@ -1,3 +1,12 @@
+def test_copy_day_empty_source_400(client):
+    r = client.post(
+        "/api/entries/copy-day",
+        json={"from_date": "2026-08-01", "to_date": "2026-08-02"},
+    )
+    assert r.status_code == 400
+    assert "无安排" in r.json()["detail"]
+
+
 def test_copy_day_skips_existing_name(client):
     # 源日两人
     client.post("/api/entries", json={

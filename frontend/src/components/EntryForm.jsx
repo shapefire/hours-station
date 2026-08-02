@@ -81,6 +81,7 @@ export default function EntryForm({
             onChange={(e) => updateField('name', e.target.value)}
             list={isEdit ? undefined : listId}
             required
+            maxLength={64}
             disabled={busy || isEdit}
             autoComplete="off"
             placeholder="输入或选择员工"

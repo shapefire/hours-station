@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Employee
@@ -12,8 +13,12 @@ def get_or_create_employee(db: Session, name: str) -> Employee:
     if emp:
         return emp
     emp = Employee(name=cleaned)
-    db.add(emp)
-    db.flush()
+    try:
+        with db.begin_nested():
+            db.add(emp)
+            db.flush()
+    except IntegrityError:
+        emp = db.scalars(select(Employee).where(Employee.name == cleaned)).one()
     return emp
 
 

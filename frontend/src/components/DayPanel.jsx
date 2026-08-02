@@ -60,6 +60,7 @@ function DraftCopyRow({ sourceEntry, busy, error, onSubmit, onCancel }) {
               onChange={(e) => setName(e.target.value)}
               list={listId}
               required
+              maxLength={64}
               disabled={busy}
               autoComplete="off"
               autoFocus
