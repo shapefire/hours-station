@@ -73,13 +73,12 @@ function formatDutyBlock(dutyEntries) {
     .join('\n')
 }
 
-/** Sum only on_duty effective hours (missing status treated as on_duty). */
+/** Sum only on_duty entries (missing status treated as on_duty). */
 export function sumPreviewHours(entries = []) {
   const list = Array.isArray(entries) ? entries : []
-  const total = list.reduce((acc, entry) => {
-    if ((entry?.status || 'on_duty') !== 'on_duty') return acc
-    return acc + Number(entry?.effective_hours || 0)
-  }, 0)
+  const total = list
+    .filter((entry) => (entry?.status || 'on_duty') === 'on_duty')
+    .reduce((acc, entry) => acc + Number(entry?.effective_hours || 0), 0)
   return formatPreviewHours(total.toFixed(1))
 }
 
@@ -90,11 +89,12 @@ export function formatDayPreviewHeader(dateLabel, entries = []) {
 
 /**
  * 2026年8月2日  合计 32.5h
- * 张三[外援]：  7:30-16:00   8h  (开门)
- * 休息：李四、王五
- * 请假：赵六
+ * 张三：  7:30-16:00   8h  (开门)
+ * 李四[外援]：  8:30-16:00  7.5h  (制机位)
+ * 休息：王五、赵六
+ * 请假：钱七
  * 支援：
- * 钱七：  9:00-12:00  (支援·不计入本店)
+ * 孙八：  9:00-17:00  (支援·不计入本店)
  */
 export function formatDayPreviewText(entries = [], { dateLabel = '' } = {}) {
   const list = Array.isArray(entries) ? entries : []

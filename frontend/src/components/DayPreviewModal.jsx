@@ -102,7 +102,7 @@ export default function DayPreviewModal({
             <p className="modal__subtitle">
               {dateLabel}
               <span className="modal__subtitle-sep">·</span>
-              合计 <Metric value={totalHours} unit="h" chip />
+              本店合计 <Metric value={totalHours} unit="h" chip />
             </p>
           </div>
           <div className="modal__header-actions">
