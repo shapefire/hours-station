@@ -1,10 +1,69 @@
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import NotePreset
+from app.models import HoursRuleTier, NotePreset
+from app.services.hours_rule_cache import get_cached_tiers, set_cached_tiers
+
+
+def _format_one_decimal(value: Decimal) -> str:
+    return f"{value.quantize(Decimal('0.1'))}"
+
+
+def _parse_tier_hours(raw: str, *, field: str) -> Decimal:
+    try:
+        value = Decimal(str(raw))
+    except Exception as exc:
+        raise ValueError(f"{field} 格式无效") from exc
+    if value != value.quantize(Decimal("0.1")):
+        quantized = value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        if value != quantized and value.as_tuple().exponent < -1:
+            raise ValueError(f"{field} 最多一位小数")
+    return value.quantize(Decimal("0.1"))
+
+
+def validate_tiers_payload(tiers: list) -> list[tuple[Decimal, Decimal]]:
+    if len(tiers) != 1:
+        raise ValueError("当前仅支持一条工时规则")
+    parsed: list[tuple[Decimal, Decimal]] = []
+    for item in tiers:
+        min_hours = _parse_tier_hours(
+            item.min_hours if hasattr(item, "min_hours") else item["min_hours"],
+            field="满额小时",
+        )
+        deduct = _parse_tier_hours(
+            item.deduct_hours if hasattr(item, "deduct_hours") else item["deduct_hours"],
+            field="扣减小时",
+        )
+        if min_hours <= 0 or min_hours > Decimal("24"):
+            raise ValueError("满额小时须在 0 到 24 之间（不含 0）")
+        if deduct < 0 or deduct > min_hours:
+            raise ValueError("扣减小时须在 0 到满额小时之间")
+        parsed.append((min_hours, deduct))
+    return parsed
+
+
+def get_hours_rule() -> dict:
+    tiers = get_cached_tiers()
+    return {
+        "tiers": [
+            {"min_hours": _format_one_decimal(m), "deduct_hours": _format_one_decimal(d)}
+            for m, d in tiers
+        ]
+    }
+
+
+def replace_hours_rule(db: Session, tiers_in: list) -> dict:
+    parsed = validate_tiers_payload(tiers_in)
+    db.execute(delete(HoursRuleTier))
+    for index, (min_hours, deduct) in enumerate(parsed):
+        db.add(HoursRuleTier(min_hours=min_hours, deduct_hours=deduct, sort_order=index))
+    db.flush()
+    set_cached_tiers(parsed)
+    return get_hours_rule()
 
 
 def list_note_presets(db: Session) -> list[NotePreset]:

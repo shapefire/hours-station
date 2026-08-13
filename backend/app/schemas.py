@@ -122,3 +122,16 @@ class NotePresetOut(BaseModel):
     id: UUID
     text: str = Field(..., max_length=200)
     sort_order: int
+
+
+class HoursRuleTierPayload(BaseModel):
+    min_hours: str
+    deduct_hours: str
+
+
+class HoursRuleIn(BaseModel):
+    tiers: list[HoursRuleTierPayload]
+
+
+class HoursRuleOut(BaseModel):
+    tiers: list[HoursRuleTierPayload]

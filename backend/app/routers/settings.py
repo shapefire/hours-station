@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import NotePresetCreate, NotePresetOut
+from app.schemas import HoursRuleIn, HoursRuleOut, NotePresetCreate, NotePresetOut
 from app.services import settings as settings_service
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -38,3 +38,17 @@ def delete_note_preset(preset_id: UUID, db: Session = Depends(get_db)):
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_exc_detail(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/hours-rule", response_model=HoursRuleOut)
+def read_hours_rule():
+    return HoursRuleOut.model_validate(settings_service.get_hours_rule())
+
+
+@router.put("/hours-rule", response_model=HoursRuleOut)
+def update_hours_rule(payload: HoursRuleIn, db: Session = Depends(get_db)):
+    try:
+        data = settings_service.replace_hours_rule(db, payload.tiers)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return HoursRuleOut.model_validate(data)

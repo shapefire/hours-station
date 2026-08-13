@@ -35,9 +35,9 @@ def db():
 @pytest.fixture()
 def client(db):
     clear_cached_tiers_for_tests()
-    load_hours_rule_cache(db)
     app.dependency_overrides[get_db] = lambda: db
     with TestClient(app) as c:
+        load_hours_rule_cache(db)
         yield c
     app.dependency_overrides.clear()
     clear_cached_tiers_for_tests()
