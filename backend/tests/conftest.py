@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db import Base, get_db
 from app.models import Employee, NotePreset, WorkEntry, HoursRuleTier  # noqa: F401
 from app.main import app
+from app.services.hours_rule_cache import clear_cached_tiers_for_tests, load_hours_rule_cache
 
 TEST_DATABASE_URL = "postgresql+psycopg://hours:hours@localhost:5432/hours_station_test"
 
@@ -33,7 +34,10 @@ def db():
 
 @pytest.fixture()
 def client(db):
+    clear_cached_tiers_for_tests()
+    load_hours_rule_cache(db)
     app.dependency_overrides[get_db] = lambda: db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    clear_cached_tiers_for_tests()
