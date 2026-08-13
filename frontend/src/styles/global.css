@@ -1974,8 +1974,28 @@ textarea {
   background: color-mix(in srgb, var(--rest) 8%, transparent);
 }
 
+.stats-days__row--leave td {
+  color: #6b2a28;
+  background: color-mix(in srgb, #6b2a28 7%, transparent);
+}
+
+.stats-days__row--support td {
+  color: var(--rest);
+  background: color-mix(in srgb, var(--rest) 6%, transparent);
+}
+
 .stats-days__rest-label {
   font-weight: 600;
+  color: var(--rest);
+}
+
+.stats-days__leave-label {
+  font-weight: 600;
+  color: #6b2a28;
+}
+
+.stats-days__support-label {
+  font-weight: 500;
   color: var(--rest);
 }
 
@@ -1987,9 +2007,26 @@ textarea {
   color: var(--metric);
 }
 
+.stats-days__row--rest .stats-days__hours,
+.stats-days__row--leave .stats-days__hours {
+  font-weight: 500;
+}
+
 .stats-days__row--rest .stats-days__hours {
   color: var(--rest);
-  font-weight: 500;
+}
+
+.stats-days__row--leave .stats-days__hours {
+  color: #6b2a28;
+}
+
+.stats-days__row--support .stats-days__hours {
+  color: var(--rest);
+}
+
+.stats-people__support-hours .metric__value,
+.stats-people__support-hours .metric__unit {
+  color: var(--rest);
 }
 
 /* iPad / tablet: stack calendar + day panel before buttons clip */
@@ -2089,9 +2126,11 @@ textarea {
   }
 
   .stats-people__table thead th:nth-child(4),
-  .stats-people__table thead th:nth-child(6),
+  .stats-people__table thead th:nth-child(5),
+  .stats-people__table thead th:nth-child(8),
   .stats-people__table tbody td:nth-child(4),
-  .stats-people__table tbody td:nth-child(6) {
+  .stats-people__table tbody td:nth-child(5),
+  .stats-people__table tbody td:nth-child(8) {
     display: none;
   }
 

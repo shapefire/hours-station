@@ -11,6 +11,22 @@ function formatAvgHours(avg) {
   return avg
 }
 
+function dayRowClass(status) {
+  if (status === 'rest') return 'stats-days__row--rest'
+  if (status === 'leave') return 'stats-days__row--leave'
+  if (status === 'support') return 'stats-days__row--support'
+  return undefined
+}
+
+function dayStatusLabel(day) {
+  if (day.status === 'rest') return '休息'
+  if (day.status === 'leave') return '请假'
+  if (day.status === 'support') {
+    return `${day.start_time} – ${day.end_time}（支援）`
+  }
+  return `${day.start_time} – ${day.end_time}`
+}
+
 function DayDetailList({ days, expectedCount }) {
   const count = days?.length ?? 0
   const mismatch = expectedCount != null && count !== expectedCount
@@ -33,23 +49,28 @@ function DayDetailList({ days, expectedCount }) {
         <tbody>
           {(days || []).map((day) => {
             const isRest = day.status === 'rest'
+            const isLeave = day.status === 'leave'
+            const isSupport = day.status === 'support'
+            const showHours = !isRest && !isLeave
+            const labelClass =
+              isRest || isLeave
+                ? 'stats-days__status-label'
+                : isSupport
+                  ? 'stats-days__time stats-days__time--support'
+                  : 'stats-days__time'
+
             return (
-              <tr
-                key={day.date}
-                className={isRest ? 'stats-days__row--rest' : undefined}
-              >
+              <tr key={day.date} className={dayRowClass(day.status)}>
                 <td>{day.date}</td>
                 <td>
-                  {isRest ? (
-                    <span className="stats-days__rest-label">休息</span>
-                  ) : (
-                    <span className="stats-days__time">
-                      {day.start_time} – {day.end_time}
-                    </span>
-                  )}
+                  <span className={labelClass}>{dayStatusLabel(day)}</span>
                 </td>
                 <td className="stats-days__hours">
-                  {isRest ? '—' : <Metric value={day.effective_hours} unit="h" chip />}
+                  {showHours ? (
+                    <Metric value={day.effective_hours} unit="h" chip />
+                  ) : (
+                    '—'
+                  )}
                 </td>
               </tr>
             )
@@ -127,6 +148,8 @@ export default function StatsPeopleTable({ year, month, people }) {
             <th scope="col">姓名</th>
             <th scope="col">出勤天数</th>
             <th scope="col">休息天数</th>
+            <th scope="col">支援天数</th>
+            <th scope="col">支援工时</th>
             <th scope="col">总工时</th>
             <th scope="col">日均工时</th>
           </tr>
@@ -165,6 +188,12 @@ export default function StatsPeopleTable({ year, month, people }) {
                   <td className="stats-people__num">
                     <Metric value={person.rest_days} unit="天" chip />
                   </td>
+                  <td className="stats-people__num">
+                    <Metric value={person.support_days} unit="天" chip />
+                  </td>
+                  <td className="stats-people__num stats-people__hours">
+                    <Metric value={person.support_hours} unit="h" chip />
+                  </td>
                   <td className="stats-people__num stats-people__hours">
                     <Metric value={person.total_hours} unit="h" chip />
                   </td>
@@ -178,7 +207,7 @@ export default function StatsPeopleTable({ year, month, people }) {
                 </tr>
                 {open ? (
                   <tr className="stats-people__detail-row">
-                    <td colSpan={6}>
+                    <td colSpan={8}>
                       <div className="stats-people__detail">
                         {loadingId === id && !daysByEmployee[id] ? (
                           <p className="stats-page__status">加载逐日明细…</p>
