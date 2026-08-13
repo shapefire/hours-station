@@ -207,3 +207,27 @@ def test_create_support_hours_returned_but_flags_forbidden(client):
         "is_trial": True,
     })
     assert bad.status_code == 400
+
+
+def test_patch_on_duty_flags_to_rest_clears_times_and_flags(client):
+    created = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "外援乙",
+        "status": "on_duty",
+        "start_time": "08:00",
+        "end_time": "17:00",
+        "is_external": True,
+        "is_trial": True,
+    }).json()
+    assert created["is_external"] is True
+    assert created["is_trial"] is True
+
+    r = client.patch(f"/api/entries/{created['id']}", json={"status": "rest"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "rest"
+    assert body["start_time"] is None
+    assert body["end_time"] is None
+    assert body["is_external"] is False
+    assert body["is_trial"] is False
+    assert body["effective_hours"] == "0.0"

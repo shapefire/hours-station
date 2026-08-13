@@ -191,6 +191,11 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
         start_time = fields["start_time"] if "start_time" in fields else entry.start_time
         end_time = fields["end_time"] if "end_time" in fields else entry.end_time
 
+    # Non-on_duty statuses forbid flags; clear before normalize so status-only PATCH succeeds.
+    if status != "on_duty":
+        is_external = False
+        is_trial = False
+
     status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
         status=status,
         is_external=is_external,
