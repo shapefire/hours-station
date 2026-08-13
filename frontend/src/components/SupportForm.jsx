@@ -11,12 +11,17 @@ const EMPTY = {
   note: '',
 }
 
+function toTimeInputValue(value) {
+  if (!value) return ''
+  return String(value).slice(0, 5)
+}
+
 function entryToForm(entry) {
   if (!entry) return { ...EMPTY }
   return {
     name: entry.employee_name || '',
-    start_time: entry.start_time ? String(entry.start_time).slice(0, 5) : '07:30',
-    end_time: entry.end_time ? String(entry.end_time).slice(0, 5) : '16:00',
+    start_time: toTimeInputValue(entry.start_time) || '07:30',
+    end_time: toTimeInputValue(entry.end_time) || '16:00',
     note: entry.note || '',
   }
 }
@@ -44,14 +49,15 @@ export default function SupportForm({
 
   function handleSubmit(event) {
     event.preventDefault()
-    const payload = {
-      name: form.name.trim(),
+    const trimmed = form.name.trim()
+    if (!isEdit && !trimmed) return
+    onSubmit?.({
+      name: trimmed,
       start_time: form.start_time,
       end_time: form.end_time,
       note: form.note.trim() ? form.note.trim() : null,
       status: 'support',
-    }
-    onSubmit?.(payload)
+    })
   }
 
   return (
@@ -67,6 +73,7 @@ export default function SupportForm({
               onChange={(name) => updateField('name', name)}
               disabled={busy}
               required
+              autoFocus
               placeholder="选择花名册或输入新姓名"
               monthYear={monthYear}
               month={month}
@@ -79,7 +86,6 @@ export default function SupportForm({
         <div className="entry-form__field">
           <span>开始</span>
           <TimeField
-            name="start_time"
             value={form.start_time}
             onChange={(v) => updateField('start_time', v)}
             required
@@ -90,7 +96,6 @@ export default function SupportForm({
         <div className="entry-form__field">
           <span>结束</span>
           <TimeField
-            name="end_time"
             value={form.end_time}
             onChange={(v) => updateField('end_time', v)}
             required
@@ -108,11 +113,12 @@ export default function SupportForm({
           value={form.note}
           onChange={(note) => updateField('note', note)}
           disabled={busy}
+          maxLength={500}
           placeholder="可选，目标店铺等"
         />
       </label>
 
-      <p className="support-form__hint">支援工时不计入本店合计</p>
+      <p className="day-panel__support-note">不计入本店工时</p>
 
       {error ? <p className="entry-form__error">{error}</p> : null}
 
