@@ -43,7 +43,9 @@ def get_calendar_month(
     days: list[CalendarDayOut] = []
     month_total = Decimal("0")
     for work_date in sorted(by_date):
-        day_entries = by_date[work_date]
+        day_entries = [e for e in by_date[work_date] if e.status == "on_duty"]
+        if not day_entries:
+            continue
         day_total = sum(
             (effective_hours(e.start_time, e.end_time) for e in day_entries),
             Decimal("0"),

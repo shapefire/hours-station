@@ -39,3 +39,29 @@ def test_calendar_empty_month(client):
     assert body["registered_days"] == 0
     assert body["month_total_hours"] == "0.0"
     assert body["days"] == []
+
+
+def test_calendar_excludes_support_and_rest_from_totals(client):
+    client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "张三",
+        "start_time": "07:30",
+        "end_time": "16:00",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "周九",
+        "status": "support",
+        "start_time": "08:00",
+        "end_time": "17:00",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "赵六",
+        "status": "rest",
+    })
+    r = client.get("/api/calendar", params={"year": 2026, "month": 8})
+    assert r.status_code == 200
+    day = next(d for d in r.json()["days"] if d["date"] == "2026-08-14")
+    assert day["entry_count"] == 1
+    assert day["total_effective_hours"] == "8.0"

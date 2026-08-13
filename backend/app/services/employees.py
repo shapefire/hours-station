@@ -47,6 +47,10 @@ def _month_hours_by_employee(db: Session, year: int, month: int) -> dict[UUID, D
     )
     totals: dict[UUID, Decimal] = {}
     for entry in entries:
+        if entry.status != "on_duty":
+            continue
+        if entry.start_time is None or entry.end_time is None:
+            continue
         hours = effective_hours(entry.start_time, entry.end_time)
         totals[entry.employee_id] = totals.get(entry.employee_id, Decimal("0")) + hours
     return totals
