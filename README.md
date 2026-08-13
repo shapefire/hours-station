@@ -73,7 +73,7 @@ chmod +x deploy.sh          # 首次需要
 DEPLOY_BRANCH=feat/hours-station ./deploy.sh
 ```
 
-脚本会：`git fetch` → 硬同步到 `origin/$BRANCH` → `docker compose up -d --build --remove-orphans` → 清理悬空镜像 → 打印 `ps`。数据卷 `pgdata` 会保留。
+脚本会：`git fetch` → 硬同步到 `origin/$BRANCH` → `docker compose up -d --build --remove-orphans` → 清理悬空镜像 → 打印 `ps`。数据卷 `pgdata` 会保留。后端容器每次启动会先执行 `alembic upgrade head`（见 `backend/docker-entrypoint.sh`），应用 lifespan 也会再跑一遍（幂等），因此发版后增量迁移会自动应用。
 
 > 注意：`deploy.sh` 使用 `git reset --hard`，服务器上对该仓库的本地未提交改动会被覆盖。
 
@@ -93,9 +93,10 @@ python -m venv .venv
 .\.venv\Scripts\activate
 copy .env.example .env
 pip install -r requirements.txt
-alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
+
+应用启动时会自动执行 `alembic upgrade head`（Docker 入口脚本与 FastAPI lifespan 均会跑；幂等）。测试通过环境变量 `SKIP_DB_MIGRATIONS=1` 跳过。也可手动执行：`alembic upgrade head`。
 
 若 `8000` 已被占用：
 

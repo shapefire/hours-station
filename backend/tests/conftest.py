@@ -1,3 +1,8 @@
+import os
+
+# Ensure app lifespan does not run Alembic against the default DATABASE_URL.
+os.environ.setdefault("SKIP_DB_MIGRATIONS", "1")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event

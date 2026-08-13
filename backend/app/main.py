@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import SessionLocal
+from app.migrate import run_alembic_upgrade, should_auto_migrate
 from app.routers import calendar, employees, entries, settings as settings_router, stats
 from app.services.hours_rule_cache import load_hours_rule_cache
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
@@ -14,6 +18,11 @@ origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if should_auto_migrate():
+        run_alembic_upgrade()
+    else:
+        logger.info("Skipping auto migrations (tests or SKIP_DB_MIGRATIONS).")
+
     db = SessionLocal()
     try:
         load_hours_rule_cache(db)
