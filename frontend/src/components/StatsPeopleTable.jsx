@@ -52,11 +52,12 @@ function DayDetailList({ days, expectedCount }) {
             const isLeave = day.status === 'leave'
             const isSupport = day.status === 'support'
             const showHours = !isRest && !isLeave
-            const labelClass =
-              isRest || isLeave
-                ? 'stats-days__status-label'
+            const labelClass = isRest
+              ? 'stats-days__rest-label'
+              : isLeave
+                ? 'stats-days__leave-label'
                 : isSupport
-                  ? 'stats-days__time stats-days__time--support'
+                  ? 'stats-days__support-label'
                   : 'stats-days__time'
 
             return (
@@ -191,7 +192,7 @@ export default function StatsPeopleTable({ year, month, people }) {
                   <td className="stats-people__num">
                     <Metric value={person.support_days} unit="天" chip />
                   </td>
-                  <td className="stats-people__num stats-people__hours">
+                  <td className="stats-people__num stats-people__hours stats-people__support-hours">
                     <Metric value={person.support_hours} unit="h" chip />
                   </td>
                   <td className="stats-people__num stats-people__hours">

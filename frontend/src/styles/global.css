@@ -1982,6 +1982,7 @@ textarea {
 .stats-days__row--support td {
   color: var(--rest);
   background: color-mix(in srgb, var(--rest) 6%, transparent);
+  border-bottom-style: dashed;
 }
 
 .stats-days__rest-label {
