@@ -9,6 +9,8 @@ const EMPTY = {
   start_time: '07:30',
   end_time: '16:00',
   note: '',
+  is_external: false,
+  is_trial: false,
 }
 
 function entryToForm(entry) {
@@ -18,6 +20,8 @@ function entryToForm(entry) {
     start_time: entry.start_time || '07:30',
     end_time: entry.end_time || '16:00',
     note: entry.note || '',
+    is_external: !!entry.is_external,
+    is_trial: !!entry.is_trial,
   }
 }
 
@@ -49,6 +53,9 @@ export default function EntryForm({
       start_time: form.start_time,
       end_time: form.end_time,
       note: form.note.trim() ? form.note.trim() : null,
+      status: 'on_duty',
+      is_external: !!form.is_external,
+      is_trial: !!form.is_trial,
     }
     onSubmit?.(payload)
   }
@@ -110,6 +117,27 @@ export default function EntryForm({
           placeholder="可选，选择预设或输入"
         />
       </label>
+
+      <div className="entry-form__checks">
+        <label>
+          <input
+            type="checkbox"
+            checked={form.is_external}
+            onChange={(e) => updateField('is_external', e.target.checked)}
+            disabled={busy}
+          />
+          外援
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.is_trial}
+            onChange={(e) => updateField('is_trial', e.target.checked)}
+            disabled={busy}
+          />
+          试工
+        </label>
+      </div>
 
       {error ? <p className="entry-form__error">{error}</p> : null}
 

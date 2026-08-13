@@ -1464,6 +1464,34 @@ textarea {
   line-height: 1;
 }
 
+.entry-form__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.entry-form__checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.entry-form__checks input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.entry-form__checks input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .entry-form__error {
   margin: 0;
   font-size: 0.85rem;

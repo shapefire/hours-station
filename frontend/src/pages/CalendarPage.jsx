@@ -215,12 +215,17 @@ export default function CalendarPage() {
           start_time: payload.start_time,
           end_time: payload.end_time,
           note: payload.note,
+          status: 'on_duty',
+          is_external: !!payload.is_external,
+          is_trial: !!payload.is_trial,
         })
       } else if (formMode === 'edit' && editingEntry) {
         await api.patch(`/api/entries/${editingEntry.id}`, {
           start_time: payload.start_time,
           end_time: payload.end_time,
           note: payload.note,
+          is_external: !!payload.is_external,
+          is_trial: !!payload.is_trial,
         })
       }
       clearFormState()
