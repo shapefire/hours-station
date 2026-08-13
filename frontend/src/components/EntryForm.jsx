@@ -34,6 +34,7 @@ export default function EntryForm({
   error = null,
   monthYear = null,
   month = null,
+  occupiedMap = {},
 }) {
   const isEdit = mode === 'edit'
   const [form, setForm] = useState(() => entryToForm(initialEntry))
@@ -48,8 +49,11 @@ export default function EntryForm({
 
   function handleSubmit(event) {
     event.preventDefault()
+    const trimmed = form.name.trim()
+    if (!isEdit && !trimmed) return
+    if (!isEdit && occupiedMap[trimmed]) return
     const payload = {
-      name: form.name.trim(),
+      name: trimmed,
       start_time: form.start_time,
       end_time: form.end_time,
       note: form.note.trim() ? form.note.trim() : null,
@@ -76,6 +80,7 @@ export default function EntryForm({
               placeholder="选择花名册或输入新姓名"
               monthYear={monthYear}
               month={month}
+              occupiedMap={occupiedMap}
             />
           )}
         </label>

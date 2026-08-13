@@ -55,6 +55,7 @@ function DraftCopyRow({
   onCancel,
   monthYear = null,
   month = null,
+  occupiedMap = {},
 }) {
   const [name, setName] = useState('')
   const [startTime, setStartTime] = useState('07:30')
@@ -72,6 +73,7 @@ function DraftCopyRow({
     event.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
+    if (occupiedMap[trimmed]) return
     onSubmit?.({
       name: trimmed,
       start_time: startTime,
@@ -98,6 +100,7 @@ function DraftCopyRow({
             placeholder="选择花名册或输入新姓名"
             monthYear={monthYear}
             month={month}
+            occupiedMap={occupiedMap}
           />
         </label>
         <div className="day-panel__draft-times">
@@ -390,6 +393,7 @@ export default function DayPanel({
                     error={formError}
                     monthYear={monthYear}
                     month={month}
+                    occupiedMap={occupiedMap}
                   />
                 </div>
               ) : null}
@@ -404,6 +408,7 @@ export default function DayPanel({
                     onCancel={onDraftCancel}
                     monthYear={monthYear}
                     month={month}
+                    occupiedMap={occupiedMap}
                   />
                 ) : null}
 
