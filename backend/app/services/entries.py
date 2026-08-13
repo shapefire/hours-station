@@ -10,10 +10,53 @@ from app.models import WorkEntry
 from app.services.employees import get_or_create_employee
 from app.services.hours import effective_hours
 
+STATUS_LABEL = {
+    "on_duty": "到岗",
+    "rest": "休息",
+    "leave": "请假",
+    "support": "支援",
+}
+
 
 def format_effective_hours(start: time, end: time) -> str:
     hours: Decimal = effective_hours(start, end)
     return f"{hours:.1f}"
+
+
+def _normalize_entry_fields(
+    *,
+    status: str,
+    is_external: bool,
+    is_trial: bool,
+    start_time: time | None,
+    end_time: time | None,
+) -> tuple[str, bool, bool, time | None, time | None]:
+    if status not in STATUS_LABEL:
+        raise ValueError("无效状态")
+    if status in ("rest", "leave"):
+        if start_time is not None or end_time is not None:
+            raise ValueError("休息/请假不能填写时段")
+        if is_external or is_trial:
+            raise ValueError("休息/请假不能标记外援或试工")
+        return status, False, False, None, None
+    if status == "support":
+        if start_time is None or end_time is None:
+            raise ValueError("支援必须填写开始与结束时间")
+        if is_external or is_trial:
+            raise ValueError("支援不能标记外援或试工")
+        format_effective_hours(start_time, end_time)
+        return status, False, False, start_time, end_time
+    # on_duty
+    if start_time is None or end_time is None:
+        raise ValueError("到岗必须填写开始与结束时间")
+    format_effective_hours(start_time, end_time)
+    return status, bool(is_external), bool(is_trial), start_time, end_time
+
+
+def format_entry_hours(entry: WorkEntry) -> str:
+    if entry.status in ("rest", "leave") or entry.start_time is None or entry.end_time is None:
+        return "0.0"
+    return format_effective_hours(entry.start_time, entry.end_time)
 
 
 def entry_to_dict(entry: WorkEntry) -> dict:
@@ -22,10 +65,13 @@ def entry_to_dict(entry: WorkEntry) -> dict:
         "work_date": entry.work_date,
         "employee_id": entry.employee_id,
         "employee_name": entry.employee.name,
+        "status": entry.status,
+        "is_external": entry.is_external,
+        "is_trial": entry.is_trial,
         "start_time": entry.start_time,
         "end_time": entry.end_time,
         "note": entry.note,
-        "effective_hours": format_effective_hours(entry.start_time, entry.end_time),
+        "effective_hours": format_entry_hours(entry),
     }
 
 
@@ -50,8 +96,10 @@ def _ensure_unique_day_employee(
     )
     if exclude_id is not None:
         stmt = stmt.where(WorkEntry.id != exclude_id)
-    if db.scalars(stmt).one_or_none() is not None:
-        raise LookupError("该员工当日已有排班")
+    existing = db.scalars(stmt).one_or_none()
+    if existing is not None:
+        label = STATUS_LABEL.get(existing.status, existing.status)
+        raise LookupError(f"该员工当日已在{label}")
 
 
 def create_entry(
@@ -59,17 +107,29 @@ def create_entry(
     *,
     work_date: date,
     name: str,
-    start_time: time,
-    end_time: time,
+    status: str = "on_duty",
+    is_external: bool = False,
+    is_trial: bool = False,
+    start_time: time | None = None,
+    end_time: time | None = None,
     note: str | None = None,
 ) -> WorkEntry:
-    format_effective_hours(start_time, end_time)
+    status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
+        status=status,
+        is_external=is_external,
+        is_trial=is_trial,
+        start_time=start_time,
+        end_time=end_time,
+    )
     employee = get_or_create_employee(db, name)
     _ensure_unique_day_employee(db, work_date=work_date, employee_id=employee.id)
 
     entry = WorkEntry(
         work_date=work_date,
         employee_id=employee.id,
+        status=status,
+        is_external=is_external,
+        is_trial=is_trial,
         start_time=start_time,
         end_time=end_time,
         note=note,
@@ -87,14 +147,24 @@ def create_entry(
 
 
 def list_entries_by_date(db: Session, work_date: date) -> list[WorkEntry]:
-    return list(
+    entries = list(
         db.scalars(
             select(WorkEntry)
             .options(joinedload(WorkEntry.employee))
             .where(WorkEntry.work_date == work_date)
-            .order_by(WorkEntry.start_time, WorkEntry.id)
+            .order_by(WorkEntry.status, WorkEntry.start_time, WorkEntry.id)
         ).unique().all()
     )
+    # SQLite lacks reliable NULLS LAST; keep null times after timed rows within status.
+    entries.sort(
+        key=lambda e: (
+            e.status,
+            e.start_time is None,
+            e.start_time or time.min,
+            str(e.id),
+        )
+    )
+    return entries
 
 
 def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
@@ -104,14 +174,36 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
 
     if "work_date" in fields and fields["work_date"] is not None:
         entry.work_date = fields["work_date"]
-    if "start_time" in fields and fields["start_time"] is not None:
-        entry.start_time = fields["start_time"]
-    if "end_time" in fields and fields["end_time"] is not None:
-        entry.end_time = fields["end_time"]
     if "note" in fields:
         entry.note = fields["note"]
 
-    format_effective_hours(entry.start_time, entry.end_time)
+    status = fields["status"] if "status" in fields and fields["status"] is not None else entry.status
+    is_external = (
+        fields["is_external"] if "is_external" in fields and fields["is_external"] is not None else entry.is_external
+    )
+    is_trial = fields["is_trial"] if "is_trial" in fields and fields["is_trial"] is not None else entry.is_trial
+
+    clear_times = bool(fields.get("clear_times"))
+    if status in ("rest", "leave") or clear_times:
+        start_time = None
+        end_time = None
+    else:
+        start_time = fields["start_time"] if "start_time" in fields else entry.start_time
+        end_time = fields["end_time"] if "end_time" in fields else entry.end_time
+
+    status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
+        status=status,
+        is_external=is_external,
+        is_trial=is_trial,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    entry.status = status
+    entry.is_external = is_external
+    entry.is_trial = is_trial
+    entry.start_time = start_time
+    entry.end_time = end_time
+
     _ensure_unique_day_employee(
         db,
         work_date=entry.work_date,

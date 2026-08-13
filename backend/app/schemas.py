@@ -4,20 +4,30 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+EntryStatus = Literal["on_duty", "rest", "leave", "support"]
+
 
 class EntryCreate(BaseModel):
     work_date: date
     name: str = Field(..., min_length=1, max_length=64)
-    start_time: time
-    end_time: time
+    status: EntryStatus = "on_duty"
+    is_external: bool = False
+    is_trial: bool = False
+    start_time: time | None = None
+    end_time: time | None = None
     note: str | None = None
+    # 状态与时段/标识组合校验在 entries 服务层，保证 ValueError → 400（非 Pydantic 422）
 
 
 class EntryUpdate(BaseModel):
     work_date: date | None = None
+    status: EntryStatus | None = None
+    is_external: bool | None = None
+    is_trial: bool | None = None
     start_time: time | None = None
     end_time: time | None = None
     note: str | None = None
+    clear_times: bool = False  # 若改为 rest/leave，服务层清空时段
 
 
 class CopyDayIn(BaseModel):
@@ -44,13 +54,18 @@ class EntryOut(BaseModel):
     work_date: date
     employee_id: UUID
     employee_name: str
-    start_time: time
-    end_time: time
+    status: EntryStatus
+    is_external: bool
+    is_trial: bool
+    start_time: time | None
+    end_time: time | None
     note: str | None
     effective_hours: str
 
     @field_serializer("start_time", "end_time")
-    def serialize_time(self, value: time) -> str:
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
         return value.strftime("%H:%M")
 
 

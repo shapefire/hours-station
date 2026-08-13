@@ -125,3 +125,85 @@ def test_invalid_time_range_rejected(client):
         "end_time": "07:30",
     })
     assert r.status_code == 400
+
+
+def test_create_rest_entry_without_times(client):
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "赵六",
+        "status": "rest",
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["status"] == "rest"
+    assert body["start_time"] is None
+    assert body["end_time"] is None
+    assert body["effective_hours"] == "0.0"
+    assert body["is_external"] is False
+    assert body["is_trial"] is False
+
+
+def test_create_on_duty_with_external_and_trial(client):
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "外援甲",
+        "start_time": "08:00",
+        "end_time": "17:00",
+        "status": "on_duty",
+        "is_external": True,
+        "is_trial": True,
+        "note": "城南店",
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["is_external"] is True
+    assert body["is_trial"] is True
+    assert body["effective_hours"] == "8.5"
+
+
+def test_rest_then_on_duty_same_day_conflict(client):
+    assert client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "张三",
+        "status": "rest",
+    }).status_code == 201
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "张三",
+        "start_time": "07:30",
+        "end_time": "16:00",
+    })
+    assert r.status_code in (400, 409)
+    assert "休息" in r.json()["detail"]
+
+
+def test_leave_rejects_times(client):
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "孙八",
+        "status": "leave",
+        "start_time": "07:30",
+        "end_time": "16:00",
+    })
+    assert r.status_code == 400
+
+
+def test_create_support_hours_returned_but_flags_forbidden(client):
+    ok = client.post("/api/entries", json={
+        "work_date": "2026-08-14",
+        "name": "周九",
+        "status": "support",
+        "start_time": "08:00",
+        "end_time": "17:00",
+    })
+    assert ok.status_code == 201
+    assert ok.json()["effective_hours"] == "8.5"
+    bad = client.post("/api/entries", json={
+        "work_date": "2026-08-15",
+        "name": "周九",
+        "status": "support",
+        "start_time": "08:00",
+        "end_time": "17:00",
+        "is_trial": True,
+    })
+    assert bad.status_code == 400
