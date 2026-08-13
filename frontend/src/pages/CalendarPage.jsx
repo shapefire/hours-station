@@ -66,6 +66,7 @@ export default function CalendarPage() {
   const [draftBusy, setDraftBusy] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [pasteBusy, setPasteBusy] = useState(false)
+  const [statusSyncBusy, setStatusSyncBusy] = useState(false)
   const calendarFetchSeqRef = useRef(0)
   const entriesFetchSeqRef = useRef(0)
 
@@ -248,6 +249,7 @@ export default function CalendarPage() {
     const current = entries.filter((e) => e.status === status)
     const currentNames = new Set(current.map((e) => e.employee_name))
     const nextSet = new Set(nextNames)
+    setStatusSyncBusy(true)
     try {
       for (const row of current) {
         if (!nextSet.has(row.employee_name)) {
@@ -263,6 +265,8 @@ export default function CalendarPage() {
     } catch (err) {
       window.alert(err.message || '更新失败')
       await Promise.all([refreshCalendar(), refreshEntries()])
+    } finally {
+      setStatusSyncBusy(false)
     }
   }
 
@@ -473,6 +477,7 @@ export default function CalendarPage() {
           draftError={draftError}
           draftBusy={draftBusy}
           pasteMode={pasteMode}
+          statusSyncBusy={statusSyncBusy}
           monthYear={viewYear}
           month={viewMonth}
           onAdd={handleAdd}

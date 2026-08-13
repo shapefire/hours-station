@@ -205,6 +205,7 @@ export default function DayPanel({
   draftError = null,
   draftBusy = false,
   pasteMode = null,
+  statusSyncBusy = false,
   monthYear = null,
   month = null,
   onAdd,
@@ -237,7 +238,9 @@ export default function DayPanel({
   const totalHours = sumHours(duty)
   const dutyCount = duty.length
   const allCount = entries.length
-  const actionsLocked = Boolean(formMode || draftCopy || pasteMode || addingSupport)
+  const actionsLocked = Boolean(
+    formMode || draftCopy || pasteMode || addingSupport || supportBusy || statusSyncBusy,
+  )
   const occupiedMap = buildOccupiedMap(entries)
 
   useEffect(() => {
@@ -348,7 +351,11 @@ export default function DayPanel({
             type="button"
             className="btn btn--primary"
             onClick={onAdd}
-            disabled={!selectedDate || formMode === 'create' || Boolean(draftCopy || pasteMode || addingSupport)}
+            disabled={
+              !selectedDate ||
+              formMode === 'create' ||
+              Boolean(draftCopy || pasteMode || addingSupport || supportBusy || statusSyncBusy)
+            }
           >
             新增到岗
           </button>
