@@ -1,8 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import api from '../api/client.js'
-import { notifyNotePresetsChanged, subscribeNotePresets } from '../settings/events.js'
+import { notifyHoursRuleChanged, notifyNotePresetsChanged, subscribeNotePresets } from '../settings/events.js'
+import { setHoursRuleLocal } from '../settings/hoursRule.js'
 
-const SECTIONS = [{ id: 'note-presets', label: '备注预设' }]
+const SECTIONS = [
+  { id: 'note-presets', label: '备注预设' },
+  { id: 'hours-rule', label: '工时计算' },
+]
 
 export default function SettingsModal({ open, onClose }) {
   const titleId = useId()
@@ -13,6 +17,12 @@ export default function SettingsModal({ open, onClose }) {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [minHours, setMinHours] = useState('6.0')
+  const [deductHours, setDeductHours] = useState('0.5')
+  const [hoursLoading, setHoursLoading] = useState(false)
+  const [hoursBusy, setHoursBusy] = useState(false)
+  const [hoursError, setHoursError] = useState(null)
+  const [hoursSaved, setHoursSaved] = useState(false)
 
   function loadPresets() {
     setLoading(true)
@@ -27,6 +37,21 @@ export default function SettingsModal({ open, onClose }) {
         setError('加载失败，请稍后重试')
       })
       .finally(() => setLoading(false))
+  }
+
+  function loadHoursRuleForm() {
+    setHoursLoading(true)
+    setHoursError(null)
+    return api
+      .get('/api/settings/hours-rule')
+      .then((body) => {
+        const tier = body?.tiers?.[0] || { min_hours: '6.0', deduct_hours: '0.5' }
+        setMinHours(String(tier.min_hours))
+        setDeductHours(String(tier.deduct_hours))
+        setHoursRuleLocal(body)
+      })
+      .catch(() => setHoursError('加载失败，请稍后重试'))
+      .finally(() => setHoursLoading(false))
   }
 
   useEffect(() => {
@@ -51,6 +76,11 @@ export default function SettingsModal({ open, onClose }) {
       loadPresets()
     })
   }, [open])
+
+  useEffect(() => {
+    if (!open || section !== 'hours-rule') return undefined
+    loadHoursRuleForm()
+  }, [open, section])
 
   if (!open) return null
 
@@ -85,6 +115,30 @@ export default function SettingsModal({ open, onClose }) {
       setError('删除失败，请稍后重试')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function handleSaveHoursRule(event) {
+    event.preventDefault()
+    if (hoursBusy) return
+    setHoursBusy(true)
+    setHoursError(null)
+    setHoursSaved(false)
+    try {
+      const body = await api.put('/api/settings/hours-rule', {
+        tiers: [{ min_hours: minHours.trim(), deduct_hours: deductHours.trim() }],
+      })
+      setHoursRuleLocal(body)
+      notifyHoursRuleChanged()
+      const tier = body.tiers[0]
+      setMinHours(String(tier.min_hours))
+      setDeductHours(String(tier.deduct_hours))
+      setHoursSaved(true)
+    } catch (err) {
+      const detail = err?.message
+      setHoursError(typeof detail === 'string' ? detail : '保存失败，请稍后重试')
+    } finally {
+      setHoursBusy(false)
     }
   }
 
@@ -176,6 +230,60 @@ export default function SettingsModal({ open, onClose }) {
                     disabled={busy || !draft.trim()}
                   >
                     添加
+                  </button>
+                </form>
+              </section>
+            ) : null}
+
+            {section === 'hours-rule' ? (
+              <section className="settings-modal__section" aria-label="工时计算">
+                <h3 className="settings-modal__section-title">工时计算</h3>
+                <p className="settings-modal__hint">
+                  毛工时达到或超过该阈值时扣减；扣减为 0 表示不扣。
+                </p>
+                {hoursLoading ? <p className="settings-modal__status">加载中…</p> : null}
+                {hoursError ? <p className="settings-modal__error">{hoursError}</p> : null}
+                {hoursSaved ? <p className="settings-modal__status">已保存</p> : null}
+                <form className="settings-modal__hours-form" onSubmit={handleSaveHoursRule}>
+                  <label className="settings-modal__field">
+                    <span>满多少小时</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="0.1"
+                      max="24"
+                      value={minHours}
+                      disabled={hoursBusy || hoursLoading}
+                      onChange={(e) => {
+                        setHoursSaved(false)
+                        setMinHours(e.target.value)
+                      }}
+                      required
+                    />
+                  </label>
+                  <label className="settings-modal__field">
+                    <span>扣减小时</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="0"
+                      value={deductHours}
+                      disabled={hoursBusy || hoursLoading}
+                      onChange={(e) => {
+                        setHoursSaved(false)
+                        setDeductHours(e.target.value)
+                      }}
+                      required
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="btn btn--primary btn--sm"
+                    disabled={hoursBusy || hoursLoading}
+                  >
+                    保存
                   </button>
                 </form>
               </section>

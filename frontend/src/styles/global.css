@@ -1292,6 +1292,46 @@ textarea {
   font-size: 0.98rem;
 }
 
+.settings-modal__hint {
+  margin: -0.65rem 0 1rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.settings-modal__hours-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 16rem;
+}
+
+.settings-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.settings-modal__field input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--bg0);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.98rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-modal__field input:disabled {
+  opacity: 0.7;
+  background: var(--bg1);
+  cursor: not-allowed;
+}
+
 /* —— Entry form —— */
 .entry-form {
   display: flex;
