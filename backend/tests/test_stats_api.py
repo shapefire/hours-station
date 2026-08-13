@@ -31,9 +31,53 @@ def test_monthly_stats_summary_and_rest_days(client):
     assert person["employee_id"] == a["employee_id"]
     assert person["name"] == "张三"
     assert person["attendance_days"] == 2
+    assert person["support_days"] == 0
+    assert person["support_hours"] == "0.0"
     assert person["rest_days"] == 29  # 31 - 2
     assert person["total_hours"] == "16.0"
     assert person["avg_hours"] == "8.0"
+
+
+def test_monthly_stats_support_not_in_store_hours_or_rest(client):
+    # Aug 2026 has 31 days
+    client.post("/api/entries", json={
+        "work_date": "2026-08-01",
+        "name": "张三",
+        "start_time": "07:30",
+        "end_time": "16:00",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-02",
+        "name": "张三",
+        "status": "support",
+        "start_time": "08:00",
+        "end_time": "17:00",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-03",
+        "name": "张三",
+        "status": "leave",
+    })
+    r = client.get("/api/stats/monthly", params={"year": 2026, "month": 8})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total_hours"] == "8.0"
+    person = body["people"][0]
+    assert person["attendance_days"] == 1
+    assert person["support_days"] == 1
+    assert person["support_hours"] == "8.5"
+    assert person["rest_days"] == 29  # 31 - 1 - 1
+    assert person["total_hours"] == "8.0"
+
+    days = client.get(
+        f"/api/stats/monthly/{person['employee_id']}/days",
+        params={"year": 2026, "month": 8},
+    ).json()["days"]
+    by = {d["date"]: d for d in days}
+    assert by["2026-08-01"]["status"] == "work"
+    assert by["2026-08-02"]["status"] == "support"
+    assert by["2026-08-03"]["status"] == "leave"
+    assert by["2026-08-04"]["status"] == "rest"
 
 
 def test_monthly_stats_sorted_by_total_hours_desc(client):

@@ -10,6 +10,13 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import Employee, WorkEntry
 from app.services.hours import effective_hours
 
+_STATUS_MAP = {
+    "on_duty": "work",
+    "rest": "rest",
+    "leave": "leave",
+    "support": "support",
+}
+
 
 def _format_hours(value: Decimal) -> str:
     return f"{value:.1f}"
@@ -42,10 +49,16 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
     attendance_person_days = 0
 
     for employee_id, emp_entries in by_employee.items():
-        work_dates = {e.work_date for e in emp_entries}
-        attendance_days = len(work_dates)
+        duty_entries = [e for e in emp_entries if e.status == "on_duty"]
+        support_entries = [e for e in emp_entries if e.status == "support"]
+        attendance_days = len({e.work_date for e in duty_entries})
+        support_days = len({e.work_date for e in support_entries})
+        support_total = sum(
+            (effective_hours(e.start_time, e.end_time) for e in support_entries),
+            Decimal("0"),
+        )
         total = sum(
-            (effective_hours(e.start_time, e.end_time) for e in emp_entries),
+            (effective_hours(e.start_time, e.end_time) for e in duty_entries),
             Decimal("0"),
         )
         month_total += total
@@ -56,7 +69,9 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
                 "employee_id": employee_id,
                 "name": emp_entries[0].employee.name,
                 "attendance_days": attendance_days,
-                "rest_days": days_in_month - attendance_days,
+                "rest_days": days_in_month - attendance_days - support_days,
+                "support_days": support_days,
+                "support_hours": _format_hours(support_total),
                 "total_hours": _format_hours(total),
                 "avg_hours": avg_hours,
             }
@@ -110,15 +125,17 @@ def employee_month_days(
                 }
             )
         else:
+            st = _STATUS_MAP[entry.status]
+            hours = None
+            if entry.status in ("on_duty", "support"):
+                hours = _format_hours(effective_hours(entry.start_time, entry.end_time))
             days.append(
                 {
                     "date": day,
-                    "status": "work",
+                    "status": st,
                     "start_time": entry.start_time,
                     "end_time": entry.end_time,
-                    "effective_hours": _format_hours(
-                        effective_hours(entry.start_time, entry.end_time)
-                    ),
+                    "effective_hours": hours,
                 }
             )
 
