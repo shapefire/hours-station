@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
@@ -26,16 +26,36 @@ def db():
     connection = engine.connect()
     transaction = connection.begin()
     session = SessionLocal(bind=connection)
+    nested = connection.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(sess, trans):
+        nonlocal nested
+        if not nested.is_active:
+            nested = connection.begin_nested()
+
     yield session
     session.close()
     transaction.rollback()
     connection.close()
 
 
+def _override_get_db(db):
+    def override():
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+    return override
+
+
 @pytest.fixture()
 def client(db):
     clear_cached_tiers_for_tests()
-    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_db] = _override_get_db(db)
     with TestClient(app) as c:
         load_hours_rule_cache(db)
         yield c

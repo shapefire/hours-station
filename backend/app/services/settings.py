@@ -32,22 +32,21 @@ def validate_tiers_payload(tiers: list) -> list[tuple[Decimal, Decimal]]:
     for item in tiers:
         min_hours = _parse_tier_hours(
             item.min_hours if hasattr(item, "min_hours") else item["min_hours"],
-            field="满额小时",
+            field="满多少小时",
         )
         deduct = _parse_tier_hours(
             item.deduct_hours if hasattr(item, "deduct_hours") else item["deduct_hours"],
             field="扣减小时",
         )
         if min_hours <= 0 or min_hours > Decimal("24"):
-            raise ValueError("满额小时须在 0 到 24 之间（不含 0）")
+            raise ValueError("满多少小时须在 0 到 24 之间（不含 0）")
         if deduct < 0 or deduct > min_hours:
-            raise ValueError("扣减小时须在 0 到满额小时之间")
+            raise ValueError("扣减小时须在 0 到满多少小时之间")
         parsed.append((min_hours, deduct))
     return parsed
 
 
-def get_hours_rule() -> dict:
-    tiers = get_cached_tiers()
+def _hours_rule_dict(tiers: list[tuple[Decimal, Decimal]]) -> dict:
     return {
         "tiers": [
             {"min_hours": _format_one_decimal(m), "deduct_hours": _format_one_decimal(d)}
@@ -56,14 +55,19 @@ def get_hours_rule() -> dict:
     }
 
 
+def get_hours_rule() -> dict:
+    return _hours_rule_dict(get_cached_tiers())
+
+
 def replace_hours_rule(db: Session, tiers_in: list) -> dict:
     parsed = validate_tiers_payload(tiers_in)
     db.execute(delete(HoursRuleTier))
     for index, (min_hours, deduct) in enumerate(parsed):
         db.add(HoursRuleTier(min_hours=min_hours, deduct_hours=deduct, sort_order=index))
     db.flush()
+    db.commit()
     set_cached_tiers(parsed)
-    return get_hours_rule()
+    return _hours_rule_dict(parsed)
 
 
 def list_note_presets(db: Session) -> list[NotePreset]:

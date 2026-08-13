@@ -129,7 +129,6 @@ export default function SettingsModal({ open, onClose }) {
         tiers: [{ min_hours: minHours.trim(), deduct_hours: deductHours.trim() }],
       })
       setHoursRuleLocal(body)
-      notifyHoursRuleChanged()
       const tier = body.tiers[0]
       setMinHours(String(tier.min_hours))
       setDeductHours(String(tier.deduct_hours))
