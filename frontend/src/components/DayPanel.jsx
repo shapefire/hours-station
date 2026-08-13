@@ -522,6 +522,7 @@ export default function DayPanel({
                 error={supportError}
                 monthYear={monthYear}
                 month={month}
+                occupiedMap={occupiedMap}
               />
             </div>
           ) : null}

@@ -1209,6 +1209,23 @@ textarea {
   font: inherit;
 }
 
+.name-field__option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--muted);
+}
+
+.name-field__option-row--occupied:hover,
+.name-field__option-row--occupied.name-field__option-row--active {
+  background: transparent;
+}
+
+.name-field__option-hint {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .name-field__option-name {
   overflow: hidden;
   text-overflow: ellipsis;

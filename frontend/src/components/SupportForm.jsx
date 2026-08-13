@@ -35,6 +35,7 @@ export default function SupportForm({
   error = null,
   monthYear = null,
   month = null,
+  occupiedMap = {},
 }) {
   const isEdit = mode === 'edit'
   const [form, setForm] = useState(() => entryToForm(initialEntry))
@@ -51,6 +52,7 @@ export default function SupportForm({
     event.preventDefault()
     const trimmed = form.name.trim()
     if (!isEdit && !trimmed) return
+    if (!isEdit && occupiedMap[trimmed]) return
     onSubmit?.({
       name: trimmed,
       start_time: form.start_time,
@@ -77,6 +79,7 @@ export default function SupportForm({
               placeholder="选择花名册或输入新姓名"
               monthYear={monthYear}
               month={month}
+              occupiedMap={occupiedMap}
             />
           )}
         </label>

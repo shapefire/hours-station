@@ -17,6 +17,7 @@ export default function EmployeeNameField({
   id: idProp,
   monthYear = null,
   month = null,
+  occupiedMap = {},
 }) {
   const autoId = useId()
   const inputId = idProp || `${autoId}-name`
@@ -74,7 +75,12 @@ export default function EmployeeNameField({
     return roster.filter((emp) => emp.name.toLowerCase().includes(q))
   }, [roster, value])
 
+  function isOccupied(name) {
+    return Boolean(occupiedMap[name])
+  }
+
   function selectName(name) {
+    if (isOccupied(name)) return
     onChange?.(name)
     setOpen(false)
     setActiveIndex(-1)
@@ -228,46 +234,61 @@ export default function EmployeeNameField({
                   : '花名册为空'}
             </li>
           ) : (
-            filtered.map((emp, index) => (
-              <li key={emp.id} role="option" aria-selected={index === activeIndex}>
-                <div
-                  className={
-                    index === activeIndex
-                      ? 'name-field__option-row name-field__option-row--active'
-                      : 'name-field__option-row'
-                  }
-                  onMouseEnter={() => setActiveIndex(index)}
+            filtered.map((emp, index) => {
+              const occupied = isOccupied(emp.name)
+              const occupiedLabel = occupiedMap[emp.name]
+              return (
+                <li
+                  key={emp.id}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  aria-disabled={occupied || undefined}
                 >
-                  <button
-                    type="button"
-                    id={`${listId}-opt-${emp.id}`}
-                    className="name-field__option"
-                    onClick={() => selectName(emp.name)}
+                  <div
+                    className={[
+                      'name-field__option-row',
+                      index === activeIndex ? 'name-field__option-row--active' : '',
+                      occupied ? 'name-field__option-row--occupied' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onMouseEnter={() => setActiveIndex(index)}
                   >
-                    <span className="name-field__option-name">{emp.name}</span>
-                    {showMonthHours ? (
-                      <span className="name-field__option-hours">
-                        <Metric
-                          value={emp.month_hours != null ? emp.month_hours : '0.0'}
-                          unit="h"
-                          chip
-                        />
-                      </span>
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    className="name-field__remove"
-                    title="移出花名册"
-                    aria-label={`将 ${emp.name} 移出花名册`}
-                    disabled={disabled || removingId === emp.id}
-                    onClick={(e) => removeFromRoster(e, emp)}
-                  >
-                    ×
-                  </button>
-                </div>
-              </li>
-            ))
+                    <button
+                      type="button"
+                      id={`${listId}-opt-${emp.id}`}
+                      className="name-field__option"
+                      disabled={occupied}
+                      onClick={() => selectName(emp.name)}
+                    >
+                      <span className="name-field__option-name">{emp.name}</span>
+                      {showMonthHours ? (
+                        <span className="name-field__option-hours">
+                          <Metric
+                            value={emp.month_hours != null ? emp.month_hours : '0.0'}
+                            unit="h"
+                            chip
+                          />
+                        </span>
+                      ) : null}
+                      {occupied && occupiedLabel ? (
+                        <span className="name-field__option-hint">已{occupiedLabel}</span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="name-field__remove"
+                      title="移出花名册"
+                      aria-label={`将 ${emp.name} 移出花名册`}
+                      disabled={disabled || removingId === emp.id}
+                      onClick={(e) => removeFromRoster(e, emp)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </li>
+              )
+            })
           )}
           {value.trim() && !exactMatch ? (
             <li className="name-field__hint" role="presentation">
