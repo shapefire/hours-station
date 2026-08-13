@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, date, time
-from sqlalchemy import Boolean, Integer, String, Date, Time, Text, DateTime, ForeignKey, UniqueConstraint, func
+from decimal import Decimal
+from sqlalchemy import Boolean, Integer, String, Date, Time, Text, DateTime, ForeignKey, UniqueConstraint, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
@@ -32,5 +33,14 @@ class NotePreset(Base):
     __tablename__ = "note_presets"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     text: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class HoursRuleTier(Base):
+    __tablename__ = "hours_rule_tiers"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    min_hours: Mapped[Decimal] = mapped_column(Numeric(4, 1), unique=True, nullable=False)
+    deduct_hours: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
