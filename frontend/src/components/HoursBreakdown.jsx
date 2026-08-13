@@ -1,8 +1,17 @@
+import { useEffect, useState } from 'react'
 import { computeHoursBreakdown, formatHoursNumber } from '../utils/hours.js'
+import { getHoursRule, loadHoursRule, subscribeHoursRuleState } from '../settings/hoursRule.js'
 import Metric from './Metric.jsx'
 
 export default function HoursBreakdown({ startTime, endTime }) {
-  const result = computeHoursBreakdown(startTime, endTime)
+  const [rule, setRule] = useState(() => getHoursRule())
+
+  useEffect(() => {
+    loadHoursRule()
+    return subscribeHoursRuleState(() => setRule(getHoursRule()))
+  }, [])
+
+  const result = computeHoursBreakdown(startTime, endTime, rule.tiers)
 
   if (!result.ok) {
     return (

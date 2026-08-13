@@ -1,8 +1,8 @@
 /**
  * Mirror backend hours rule for live preview in forms.
- * raw >= 6 → deduct 0.5; else no deduct; 1 decimal.
+ * Applies configurable tiers; 1 decimal.
  */
-export function computeHoursBreakdown(startTime, endTime) {
+export function computeHoursBreakdown(startTime, endTime, tiers) {
   const start = parseHm(startTime)
   const end = parseHm(endTime)
   if (!start || !end) {
@@ -14,7 +14,17 @@ export function computeHoursBreakdown(startTime, endTime) {
   }
 
   const raw = round1(rawMinutes / 60)
-  const deduct = raw >= 6 ? 0.5 : 0
+  const list = Array.isArray(tiers) && tiers.length ? tiers : [{ min_hours: '6.0', deduct_hours: '0.5' }]
+  const sorted = [...list].sort((a, b) => Number(b.min_hours) - Number(a.min_hours))
+  let deduct = 0
+  for (const tier of sorted) {
+    const minH = Number(tier.min_hours)
+    const ded = Number(tier.deduct_hours)
+    if (raw >= minH) {
+      deduct = ded > 0 ? ded : 0
+      break
+    }
+  }
   const effective = round1(raw - deduct)
   return { ok: true, reason: null, raw, deduct, effective }
 }

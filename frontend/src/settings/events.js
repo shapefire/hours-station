@@ -1,6 +1,7 @@
 /** In-memory bus so SettingsModal / NoteField stay in sync without localStorage. */
 
 const listeners = new Set()
+const hoursRuleListeners = new Set()
 
 export function subscribeNotePresets(listener) {
   listeners.add(listener)
@@ -13,6 +14,21 @@ export function notifyNotePresetsChanged() {
       listener()
     } catch {
       /* ignore subscriber errors */
+    }
+  })
+}
+
+export function subscribeHoursRule(listener) {
+  hoursRuleListeners.add(listener)
+  return () => hoursRuleListeners.delete(listener)
+}
+
+export function notifyHoursRuleChanged() {
+  hoursRuleListeners.forEach((listener) => {
+    try {
+      listener()
+    } catch {
+      /* ignore */
     }
   })
 }
