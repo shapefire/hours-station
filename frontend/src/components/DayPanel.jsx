@@ -347,18 +347,6 @@ export default function DayPanel({
           >
             清空当日
           </button>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={onAdd}
-            disabled={
-              !selectedDate ||
-              formMode === 'create' ||
-              Boolean(draftCopy || pasteMode || addingSupport || supportBusy || statusSyncBusy)
-            }
-          >
-            新增到岗
-          </button>
         </div>
       </header>
 
@@ -369,224 +357,243 @@ export default function DayPanel({
           <p className="day-panel__status">当日暂无登记，点击「新增到岗」开始录入。</p>
         ) : null}
 
-        {formMode === 'create' ? (
-          <div className="day-panel__create">
-            <h3 className="day-panel__create-title">新增到岗</h3>
-            <EntryForm
-              mode="create"
-              onSubmit={onFormSubmit}
-              onCancel={onFormCancel}
-              busy={formBusy}
-              error={formError}
-              monthYear={monthYear}
-              month={month}
+        <div className="day-panel__columns">
+          <div className="day-panel__col day-panel__col--duty">
+            <section className="day-panel__section">
+              <div className="day-panel__section-head">
+                <h3 className="day-panel__section-title">
+                  到岗安排
+                  <span className="day-panel__section-count">{dutyCount}</span>
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={onAdd}
+                  disabled={
+                    !selectedDate ||
+                    formMode === 'create' ||
+                    Boolean(draftCopy || pasteMode || addingSupport || supportBusy || statusSyncBusy)
+                  }
+                >
+                  新增到岗
+                </button>
+              </div>
+
+              {formMode === 'create' ? (
+                <div className="day-panel__create">
+                  <h3 className="day-panel__create-title">新增到岗</h3>
+                  <EntryForm
+                    mode="create"
+                    onSubmit={onFormSubmit}
+                    onCancel={onFormCancel}
+                    busy={formBusy}
+                    error={formError}
+                    monthYear={monthYear}
+                    month={month}
+                  />
+                </div>
+              ) : null}
+
+              <ul className="day-panel__list">
+                {draftCopy?.sourceEntry ? (
+                  <DraftCopyRow
+                    sourceEntry={draftCopy.sourceEntry}
+                    busy={draftBusy}
+                    error={draftError}
+                    onSubmit={onDraftSubmit}
+                    onCancel={onDraftCancel}
+                    monthYear={monthYear}
+                    month={month}
+                  />
+                ) : null}
+
+                {duty.map((entry) => {
+                  const isEditing = formMode === 'edit' && editingEntry?.id === entry.id
+                  return (
+                    <li key={entry.id} className="day-panel__item">
+                      {isEditing ? (
+                        <EntryForm
+                          mode="edit"
+                          initialEntry={editingEntry}
+                          onSubmit={onFormSubmit}
+                          onCancel={onFormCancel}
+                          busy={formBusy}
+                          error={formError}
+                          monthYear={monthYear}
+                          month={month}
+                        />
+                      ) : (
+                        <>
+                          <div className="day-panel__row">
+                            <span className="day-panel__name">
+                              {entry.employee_name}
+                              {entry.is_external ? (
+                                <span className="badge badge--external">外援</span>
+                              ) : null}
+                              {entry.is_trial ? (
+                                <span className="badge badge--trial">试工</span>
+                              ) : null}
+                            </span>
+                            <span className="day-panel__time">
+                              {entry.start_time}–{entry.end_time}
+                            </span>
+                            <span className="day-panel__hours">
+                              <Metric value={entry.effective_hours} unit="h" chip />
+                            </span>
+                          </div>
+                          {entry.note ? <p className="day-panel__note">{entry.note}</p> : null}
+                          <div className="day-panel__item-actions">
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => onCopyPerson(entry)}
+                              disabled={actionsLocked}
+                            >
+                              复制
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => onEdit(entry)}
+                              disabled={actionsLocked}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => onDelete(entry)}
+                              disabled={actionsLocked}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              {!loading && duty.length === 0 && formMode !== 'create' && !draftCopy ? (
+                <p className="day-panel__section-empty">暂无到岗安排</p>
+              ) : null}
+            </section>
+          </div>
+
+          <div className="day-panel__col day-panel__col--status">
+            <StatusChipSection
+              title="休息人员"
+              entries={rest}
+              actionsLocked={actionsLocked}
+              onAdd={() => openMultiPick('rest')}
+              onRemove={(entry) => onRemoveEntry?.(entry)}
             />
+
+            <StatusChipSection
+              title="请假人员"
+              entries={leave}
+              actionsLocked={actionsLocked}
+              onAdd={() => openMultiPick('leave')}
+              onRemove={(entry) => onRemoveEntry?.(entry)}
+            />
+
+            <section className="day-panel__section">
+              <div className="day-panel__section-head">
+                <h3 className="day-panel__section-title">
+                  支援（本店外派）
+                  <span className="day-panel__section-count">{support.length}</span>
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={handleStartAddSupport}
+                  disabled={!selectedDate || actionsLocked || addingSupport}
+                >
+                  + 添加
+                </button>
+              </div>
+
+              {addingSupport ? (
+                <div className="day-panel__create day-panel__create--support">
+                  <h3 className="day-panel__create-title">新增支援</h3>
+                  <SupportForm
+                    mode="create"
+                    onSubmit={handleSupportCreate}
+                    onCancel={() => {
+                      setAddingSupport(false)
+                      setSupportError(null)
+                    }}
+                    busy={supportBusy}
+                    error={supportError}
+                    monthYear={monthYear}
+                    month={month}
+                    occupiedMap={occupiedMap}
+                  />
+                </div>
+              ) : null}
+
+              <ul className="day-panel__list">
+                {support.map((entry) => {
+                  const isEditing = formMode === 'edit-support' && editingEntry?.id === entry.id
+                  return (
+                    <li key={entry.id} className="day-panel__item day-panel__support-item">
+                      {isEditing ? (
+                        <SupportForm
+                          mode="edit"
+                          initialEntry={editingEntry}
+                          onSubmit={onFormSubmit}
+                          onCancel={onFormCancel}
+                          busy={formBusy}
+                          error={formError}
+                          monthYear={monthYear}
+                          month={month}
+                        />
+                      ) : (
+                        <>
+                          <div className="day-panel__row">
+                            <span className="day-panel__name">
+                              {entry.employee_name}
+                              <span className="badge badge--support">支援</span>
+                            </span>
+                            <span className="day-panel__time">
+                              {entry.start_time}–{entry.end_time}
+                            </span>
+                            <span className="day-panel__hours">
+                              <Metric value={entry.effective_hours} unit="h" chip />
+                            </span>
+                          </div>
+                          <p className="day-panel__support-note">不计入本店工时</p>
+                          {entry.note ? <p className="day-panel__note">{entry.note}</p> : null}
+                          <div className="day-panel__item-actions">
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => onEditSupport?.(entry)}
+                              disabled={actionsLocked}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => onDelete(entry)}
+                              disabled={actionsLocked}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              {!loading && support.length === 0 && !addingSupport ? (
+                <p className="day-panel__section-empty">暂无支援安排</p>
+              ) : null}
+            </section>
           </div>
-        ) : null}
-
-        <section className="day-panel__section">
-          <div className="day-panel__section-head">
-            <h3 className="day-panel__section-title">
-              到岗安排
-              <span className="day-panel__section-count">{dutyCount}</span>
-            </h3>
-          </div>
-          <ul className="day-panel__list">
-            {draftCopy?.sourceEntry ? (
-              <DraftCopyRow
-                sourceEntry={draftCopy.sourceEntry}
-                busy={draftBusy}
-                error={draftError}
-                onSubmit={onDraftSubmit}
-                onCancel={onDraftCancel}
-                monthYear={monthYear}
-                month={month}
-              />
-            ) : null}
-
-            {duty.map((entry) => {
-              const isEditing = formMode === 'edit' && editingEntry?.id === entry.id
-              return (
-                <li key={entry.id} className="day-panel__item">
-                  {isEditing ? (
-                    <EntryForm
-                      mode="edit"
-                      initialEntry={editingEntry}
-                      onSubmit={onFormSubmit}
-                      onCancel={onFormCancel}
-                      busy={formBusy}
-                      error={formError}
-                      monthYear={monthYear}
-                      month={month}
-                    />
-                  ) : (
-                    <>
-                      <div className="day-panel__row">
-                        <span className="day-panel__name">
-                          {entry.employee_name}
-                          {entry.is_external ? (
-                            <span className="badge badge--external">外援</span>
-                          ) : null}
-                          {entry.is_trial ? (
-                            <span className="badge badge--trial">试工</span>
-                          ) : null}
-                        </span>
-                        <span className="day-panel__time">
-                          {entry.start_time}–{entry.end_time}
-                        </span>
-                        <span className="day-panel__hours">
-                          <Metric value={entry.effective_hours} unit="h" chip />
-                        </span>
-                      </div>
-                      {entry.note ? <p className="day-panel__note">{entry.note}</p> : null}
-                      <div className="day-panel__item-actions">
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => onCopyPerson(entry)}
-                          disabled={actionsLocked}
-                        >
-                          复制
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => onEdit(entry)}
-                          disabled={actionsLocked}
-                        >
-                          编辑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => onDelete(entry)}
-                          disabled={actionsLocked}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {!loading && duty.length === 0 && formMode !== 'create' && !draftCopy ? (
-            <p className="day-panel__section-empty">暂无到岗安排</p>
-          ) : null}
-        </section>
-
-        <StatusChipSection
-          title="休息人员"
-          entries={rest}
-          actionsLocked={actionsLocked}
-          onAdd={() => openMultiPick('rest')}
-          onRemove={(entry) => onRemoveEntry?.(entry)}
-        />
-
-        <StatusChipSection
-          title="请假人员"
-          entries={leave}
-          actionsLocked={actionsLocked}
-          onAdd={() => openMultiPick('leave')}
-          onRemove={(entry) => onRemoveEntry?.(entry)}
-        />
-
-        <section className="day-panel__section">
-          <div className="day-panel__section-head">
-            <h3 className="day-panel__section-title">
-              支援（本店外派）
-              <span className="day-panel__section-count">{support.length}</span>
-            </h3>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={handleStartAddSupport}
-              disabled={!selectedDate || actionsLocked || addingSupport}
-            >
-              + 添加
-            </button>
-          </div>
-
-          {addingSupport ? (
-            <div className="day-panel__create day-panel__create--support">
-              <h3 className="day-panel__create-title">新增支援</h3>
-              <SupportForm
-                mode="create"
-                onSubmit={handleSupportCreate}
-                onCancel={() => {
-                  setAddingSupport(false)
-                  setSupportError(null)
-                }}
-                busy={supportBusy}
-                error={supportError}
-                monthYear={monthYear}
-                month={month}
-                occupiedMap={occupiedMap}
-              />
-            </div>
-          ) : null}
-
-          <ul className="day-panel__list">
-            {support.map((entry) => {
-              const isEditing = formMode === 'edit-support' && editingEntry?.id === entry.id
-              return (
-                <li key={entry.id} className="day-panel__item day-panel__support-item">
-                  {isEditing ? (
-                    <SupportForm
-                      mode="edit"
-                      initialEntry={editingEntry}
-                      onSubmit={onFormSubmit}
-                      onCancel={onFormCancel}
-                      busy={formBusy}
-                      error={formError}
-                      monthYear={monthYear}
-                      month={month}
-                    />
-                  ) : (
-                    <>
-                      <div className="day-panel__row">
-                        <span className="day-panel__name">
-                          {entry.employee_name}
-                          <span className="badge badge--support">支援</span>
-                        </span>
-                        <span className="day-panel__time">
-                          {entry.start_time}–{entry.end_time}
-                        </span>
-                        <span className="day-panel__hours">
-                          <Metric value={entry.effective_hours} unit="h" chip />
-                        </span>
-                      </div>
-                      <p className="day-panel__support-note">不计入本店工时</p>
-                      {entry.note ? <p className="day-panel__note">{entry.note}</p> : null}
-                      <div className="day-panel__item-actions">
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => onEditSupport?.(entry)}
-                          disabled={actionsLocked}
-                        >
-                          编辑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => onDelete(entry)}
-                          disabled={actionsLocked}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {!loading && support.length === 0 && !addingSupport ? (
-            <p className="day-panel__section-empty">暂无支援安排</p>
-          ) : null}
-        </section>
+        </div>
       </div>
 
       <DayPreviewModal
