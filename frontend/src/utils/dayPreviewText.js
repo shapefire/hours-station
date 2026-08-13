@@ -33,38 +33,30 @@ export function formatPreviewHours(value) {
   return Number.isInteger(n) ? String(n) : String(n)
 }
 
-function entryParts(entry) {
-  const name = `${entry?.employee_name?.trim() || '—'}：`
+function dutyNameLabel(entry) {
+  let n = entry?.employee_name?.trim() || '—'
+  const tags = []
+  if (entry?.is_external) tags.push('外援')
+  if (entry?.is_trial) tags.push('试工')
+  if (tags.length) n = `${n}[${tags.join(',')}]`
+  return `${n}：`
+}
+
+function dutyEntryParts(entry) {
+  const name = dutyNameLabel(entry)
   const range = `${formatPreviewTime(entry?.start_time)}-${formatPreviewTime(entry?.end_time)}`
   const hours = `${formatPreviewHours(entry?.effective_hours)}h`
   const note = entry?.note?.trim()
   return { name, range, hours, note }
 }
 
-export function sumPreviewHours(entries = []) {
-  const total = entries.reduce((acc, entry) => acc + Number(entry?.effective_hours || 0), 0)
-  return formatPreviewHours(total.toFixed(1))
-}
-
-export function formatDayPreviewHeader(dateLabel, entries = []) {
-  const date = String(dateLabel || '').trim() || '当日'
-  return `${date}  合计 ${sumPreviewHours(entries)}h`
-}
-
-/**
- * 2026年8月2日  合计 32.5h
- * 张三：  7:30-16:00   8h  (开门)
- * 李四：  8:30-16:00  7.5h  (制机位)
- */
-export function formatDayPreviewText(entries = [], { dateLabel = '' } = {}) {
-  if (!entries.length) return ''
-
-  const rows = entries.map(entryParts)
+function formatDutyBlock(dutyEntries) {
+  const rows = dutyEntries.map(dutyEntryParts)
   const nameWidth = Math.max(...rows.map((r) => displayWidth(r.name)), 6)
   const rangeWidth = Math.max(...rows.map((r) => displayWidth(r.range)), 11)
   const hoursWidth = Math.max(...rows.map((r) => displayWidth(r.hours)), 3)
 
-  const body = rows
+  return rows
     .map(({ name, range, hours, note }) => {
       const base = [
         padEndWidth(name, nameWidth),
@@ -79,7 +71,59 @@ export function formatDayPreviewText(entries = [], { dateLabel = '' } = {}) {
       return `${base}  (${note})`
     })
     .join('\n')
+}
 
+/** Sum only on_duty effective hours (missing status treated as on_duty). */
+export function sumPreviewHours(entries = []) {
+  const list = Array.isArray(entries) ? entries : []
+  const total = list.reduce((acc, entry) => {
+    if ((entry?.status || 'on_duty') !== 'on_duty') return acc
+    return acc + Number(entry?.effective_hours || 0)
+  }, 0)
+  return formatPreviewHours(total.toFixed(1))
+}
+
+export function formatDayPreviewHeader(dateLabel, entries = []) {
+  const date = String(dateLabel || '').trim() || '当日'
+  return `${date}  合计 ${sumPreviewHours(entries)}h`
+}
+
+/**
+ * 2026年8月2日  合计 32.5h
+ * 张三[外援]：  7:30-16:00   8h  (开门)
+ * 休息：李四、王五
+ * 请假：赵六
+ * 支援：
+ * 钱七：  9:00-12:00  (支援·不计入本店)
+ */
+export function formatDayPreviewText(entries = [], { dateLabel = '' } = {}) {
+  const list = Array.isArray(entries) ? entries : []
+  if (!list.length) return ''
+
+  const duty = list.filter((e) => (e.status || 'on_duty') === 'on_duty')
+  const rest = list.filter((e) => e.status === 'rest')
+  const leave = list.filter((e) => e.status === 'leave')
+  const support = list.filter((e) => e.status === 'support')
+
+  const sections = []
+  if (duty.length) {
+    sections.push(formatDutyBlock(duty))
+  }
+  if (rest.length) {
+    sections.push(`休息：${rest.map((e) => e.employee_name).join('、')}`)
+  }
+  if (leave.length) {
+    sections.push(`请假：${leave.map((e) => e.employee_name).join('、')}`)
+  }
+  if (support.length) {
+    const lines = support.map((e) => {
+      const range = `${formatPreviewTime(e.start_time)}-${formatPreviewTime(e.end_time)}`
+      return `${e.employee_name}：  ${range}  (支援·不计入本店)`
+    })
+    sections.push(`支援：\n${lines.join('\n')}`)
+  }
+
+  const body = sections.join('\n')
   if (!dateLabel) return body
-  return `${formatDayPreviewHeader(dateLabel, entries)}\n${body}`
+  return `${formatDayPreviewHeader(dateLabel, duty)}\n${body}`
 }
