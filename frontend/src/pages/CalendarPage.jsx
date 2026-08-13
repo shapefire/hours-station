@@ -227,6 +227,13 @@ export default function CalendarPage() {
           is_external: !!payload.is_external,
           is_trial: !!payload.is_trial,
         })
+      } else if (formMode === 'edit-support' && editingEntry) {
+        await api.patch(`/api/entries/${editingEntry.id}`, {
+          start_time: payload.start_time,
+          end_time: payload.end_time,
+          note: payload.note,
+          status: 'support',
+        })
       }
       clearFormState()
       await Promise.all([refreshCalendar(), refreshEntries()])
@@ -237,8 +244,72 @@ export default function CalendarPage() {
     }
   }
 
+  async function syncStatusNames(status, nextNames) {
+    const current = entries.filter((e) => e.status === status)
+    const currentNames = new Set(current.map((e) => e.employee_name))
+    const nextSet = new Set(nextNames)
+    try {
+      for (const row of current) {
+        if (!nextSet.has(row.employee_name)) {
+          await api.delete(`/api/entries/${row.id}`)
+        }
+      }
+      for (const name of nextNames) {
+        if (!currentNames.has(name)) {
+          await api.post('/api/entries', { work_date: selectedDate, name, status })
+        }
+      }
+      await Promise.all([refreshCalendar(), refreshEntries()])
+    } catch (err) {
+      window.alert(err.message || '更新失败')
+      await Promise.all([refreshCalendar(), refreshEntries()])
+    }
+  }
+
+  async function handleAddRestLeave(status, names) {
+    await syncStatusNames(status, names)
+  }
+
+  async function handleAddSupport(payload) {
+    await api.post('/api/entries', {
+      work_date: selectedDate,
+      name: payload.name,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      note: payload.note,
+      status: 'support',
+    })
+    await Promise.all([refreshCalendar(), refreshEntries()])
+  }
+
+  function handleEditSupport(entry) {
+    clearDraftState()
+    setPasteMode(null)
+    setFormMode('edit-support')
+    setEditingEntry(entry)
+    setFormError(null)
+  }
+
+  async function handleRemoveEntry(entry) {
+    try {
+      await api.delete(`/api/entries/${entry.id}`)
+      await Promise.all([refreshCalendar(), refreshEntries()])
+    } catch (err) {
+      window.alert(err.message || '删除失败')
+    }
+  }
+
   async function handleDelete(entry) {
-    const ok = window.confirm(`确认删除 ${entry.employee_name} 的当日安排？`)
+    const status = entry.status || 'on_duty'
+    const kind =
+      status === 'support'
+        ? '支援安排'
+        : status === 'rest'
+          ? '休息'
+          : status === 'leave'
+            ? '请假'
+            : '当日安排'
+    const ok = window.confirm(`确认删除 ${entry.employee_name} 的${kind}？`)
     if (!ok) return
     try {
       await api.delete(`/api/entries/${entry.id}`)
@@ -338,6 +409,9 @@ export default function CalendarPage() {
         start_time: payload.start_time,
         end_time: payload.end_time,
         note: payload.note,
+        status: 'on_duty',
+        is_external: !!payload.is_external,
+        is_trial: !!payload.is_trial,
       })
       clearDraftState()
       setFeedback(`已复制为「${payload.name}」`)
@@ -411,6 +485,10 @@ export default function CalendarPage() {
           onCopyPerson={handleCopyPerson}
           onDraftSubmit={handleDraftSubmit}
           onDraftCancel={handleDraftCancel}
+          onAddRestLeave={handleAddRestLeave}
+          onRemoveEntry={handleRemoveEntry}
+          onAddSupport={handleAddSupport}
+          onEditSupport={handleEditSupport}
         />
       </div>
     </div>
