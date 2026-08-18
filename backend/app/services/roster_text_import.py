@@ -1,6 +1,11 @@
 from datetime import date, time
 import re
 
+from sqlalchemy.orm import Session
+
+from app.services.day_notes import put_day_note
+from app.services.entries import create_entry, list_entries_by_date, update_entry
+
 TIME_TOKEN = r"(\d{1,2}(?:\.\d)?)"
 TIME_RANGE = rf"{TIME_TOKEN}-{TIME_TOKEN}"
 
@@ -213,3 +218,64 @@ def parse_roster_text(text: str, *, year: int) -> dict:
 
     _flush_day(days, current, entries)
     return {"days": days, "unparsed_lines": unparsed_lines}
+
+
+def preview_roster_import(text: str, *, year: int) -> dict:
+    return parse_roster_text(text, year=year)
+
+
+def commit_roster_import(db: Session, days: list[dict]) -> dict:
+    created = 0
+    updated = 0
+    day_notes_upserted = 0
+
+    for day in days:
+        work_date = day["work_date"]
+        existing_by_name = {
+            entry.employee.name: entry for entry in list_entries_by_date(db, work_date)
+        }
+        for draft in day["entries"]:
+            name = draft["name"]
+            status = draft["status"]
+            fields = {
+                "status": status,
+                "is_trial": draft.get("is_trial", False),
+                "note": draft.get("note"),
+                "ot_start_time": draft.get("ot_start_time"),
+                "ot_end_time": draft.get("ot_end_time"),
+            }
+            if status not in ("rest", "leave"):
+                fields["start_time"] = draft.get("start_time")
+                fields["end_time"] = draft.get("end_time")
+
+            existing = existing_by_name.get(name)
+            if existing is not None:
+                updated_entry = update_entry(db, existing.id, fields)
+                existing_by_name[name] = updated_entry
+                updated += 1
+            else:
+                created_entry = create_entry(
+                    db,
+                    work_date=work_date,
+                    name=name,
+                    status=status,
+                    is_trial=fields["is_trial"],
+                    start_time=draft.get("start_time"),
+                    end_time=draft.get("end_time"),
+                    note=fields["note"],
+                    ot_start_time=fields["ot_start_time"],
+                    ot_end_time=fields["ot_end_time"],
+                )
+                existing_by_name[name] = created_entry
+                created += 1
+
+        day_note = day.get("day_note")
+        if day_note is not None:
+            put_day_note(db, work_date, day_note)
+            day_notes_upserted += 1
+
+    return {
+        "created": created,
+        "updated": updated,
+        "day_notes_upserted": day_notes_upserted,
+    }

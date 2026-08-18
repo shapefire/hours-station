@@ -5,8 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import CopyDayIn, CopyDayOut, CopyPersonIn, EntryCreate, EntryOut, EntryUpdate
+from app.schemas import (
+    CopyDayIn,
+    CopyDayOut,
+    CopyPersonIn,
+    EntryCreate,
+    EntryOut,
+    EntryUpdate,
+    RosterImportCommitIn,
+    RosterImportCommitOut,
+    RosterImportPreviewIn,
+    RosterImportPreviewOut,
+)
 from app.services import entries as entries_service
+from app.services.roster_text_import import commit_roster_import, preview_roster_import
 
 router = APIRouter(prefix="/api/entries", tags=["entries"])
 
@@ -91,6 +103,19 @@ def copy_person(payload: CopyPersonIn, db: Session = Depends(get_db)):
     except (ValueError, LookupError, KeyError) as exc:
         raise _http_from_domain(exc) from exc
     return EntryOut.model_validate(entries_service.entry_to_dict(entry))
+
+
+@router.post("/import/preview", response_model=RosterImportPreviewOut)
+def import_preview(payload: RosterImportPreviewIn):
+    return preview_roster_import(payload.text, year=payload.year)
+
+
+@router.post("/import/commit", response_model=RosterImportCommitOut)
+def import_commit(payload: RosterImportCommitIn, db: Session = Depends(get_db)):
+    try:
+        return commit_roster_import(db, payload.model_dump()["days"])
+    except (ValueError, LookupError) as exc:
+        raise _http_from_domain(exc) from exc
 
 
 @router.patch("/{entry_id}", response_model=EntryOut)

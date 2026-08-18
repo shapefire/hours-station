@@ -184,3 +184,65 @@ class DayNotePut(BaseModel):
 class DayNoteOut(BaseModel):
     work_date: date
     note: str | None
+
+
+class RosterImportPreviewIn(BaseModel):
+    text: str
+    year: int
+
+
+class RosterImportPreviewEntry(BaseModel):
+    name: str
+    status: EntryStatus | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    ot_start_time: time | None = None
+    ot_end_time: time | None = None
+    is_trial: bool = False
+    note: str | None = None
+    errors: list[str] = Field(default_factory=list)
+
+    @field_serializer("start_time", "end_time", "ot_start_time", "ot_end_time")
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")
+
+
+class RosterImportPreviewDay(BaseModel):
+    work_date: date
+    day_note: str | None = None
+    entries: list[RosterImportPreviewEntry]
+    errors: list[str] = Field(default_factory=list)
+
+
+class RosterImportPreviewOut(BaseModel):
+    days: list[RosterImportPreviewDay]
+    unparsed_lines: list[str] = Field(default_factory=list)
+
+
+class RosterImportCommitEntry(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+    status: EntryStatus
+    start_time: time | None = None
+    end_time: time | None = None
+    ot_start_time: time | None = None
+    ot_end_time: time | None = None
+    is_trial: bool = False
+    note: str | None = None
+
+
+class RosterImportCommitDay(BaseModel):
+    work_date: date
+    day_note: str | None = None
+    entries: list[RosterImportCommitEntry]
+
+
+class RosterImportCommitIn(BaseModel):
+    days: list[RosterImportCommitDay]
+
+
+class RosterImportCommitOut(BaseModel):
+    created: int
+    updated: int
+    day_notes_upserted: int
