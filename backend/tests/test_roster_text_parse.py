@@ -39,6 +39,34 @@ def test_parse_shift_change_paren():
     assert e["name"] == "苑菱"
     assert e["start_time"] == time(10, 0)
     assert e["end_time"] == time(23, 30)
+    assert e["ot_start_time"] is None
+    assert e["ot_end_time"] is None
+
+
+def test_parse_duty_trailing_paren_after_main_is_ot():
+    text = "8月4 周二\n8-16晓玲（制备位）7.5（22-23.5）"
+    e = parse_roster_text(text, year=2026)["days"][0]["entries"][0]
+    assert e["name"] == "晓玲"
+    assert e["start_time"] == time(8, 0)
+    assert e["end_time"] == time(16, 0)
+    assert e["note"] == "制备位"
+    assert e["ot_start_time"] == time(22, 0)
+    assert e["ot_end_time"] == time(23, 30)
+
+
+def test_parse_duty_trailing_paren_ot_multiple_people():
+    text = """8月4 周二
+8-16晓玲（制备位）7.5（22-23.5）
+8-17佳博（水果位）8.5（22-23.5）"""
+    by_name = {
+        e["name"]: e for e in parse_roster_text(text, year=2026)["days"][0]["entries"]
+    }
+    for name in ("晓玲", "佳博"):
+        assert by_name[name]["start_time"] == time(8, 0)
+        assert by_name[name]["ot_start_time"] == time(22, 0)
+        assert by_name[name]["ot_end_time"] == time(23, 30)
+    assert by_name["晓玲"]["end_time"] == time(16, 0)
+    assert by_name["佳博"]["end_time"] == time(17, 0)
 
 
 def test_parse_rest_and_ot_line():
@@ -233,6 +261,8 @@ def test_gold_sample_aug1():
 
 AUG4_SAMPLE = """8月4 周二
 8.5-19苑菱（早值、检查效期）10（10-23.5）
+8-16晓玲（制备位）7.5（22-23.5）
+8-17佳博（水果位）8.5（22-23.5）
 继鹏22-23.5
 休息：梓野 锶锴 继鹏
 支援上社：洁怡
@@ -245,10 +275,20 @@ def test_gold_sample_aug4_shift_change_and_ot():
     day = result["days"][0]
     assert day["work_date"] == date(2026, 8, 4)
     by_name = {e["name"]: e for e in day["entries"]}
-    assert set(by_name) == {"苑菱", "继鹏", "梓野", "锶锴", "洁怡"}
+    assert set(by_name) == {"苑菱", "晓玲", "佳博", "继鹏", "梓野", "锶锴", "洁怡"}
     assert by_name["苑菱"]["start_time"] == time(10, 0)
     assert by_name["苑菱"]["end_time"] == time(23, 30)
     assert by_name["苑菱"]["note"] == "早值、检查效期"
+    xiaoling = by_name["晓玲"]
+    assert xiaoling["start_time"] == time(8, 0)
+    assert xiaoling["end_time"] == time(16, 0)
+    assert xiaoling["ot_start_time"] == time(22, 0)
+    assert xiaoling["ot_end_time"] == time(23, 30)
+    jiabo = by_name["佳博"]
+    assert jiabo["start_time"] == time(8, 0)
+    assert jiabo["end_time"] == time(17, 0)
+    assert jiabo["ot_start_time"] == time(22, 0)
+    assert jiabo["ot_end_time"] == time(23, 30)
     assert by_name["继鹏"]["status"] == "rest"
     assert by_name["继鹏"]["ot_start_time"] == time(22, 0)
     assert by_name["继鹏"]["ot_end_time"] == time(23, 30)

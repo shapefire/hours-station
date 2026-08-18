@@ -326,17 +326,23 @@ def parse_roster_text(text: str, *, year: int) -> dict:
                 unparsed_lines.append(line)
                 continue
             name, note, shift_start, shift_end, shift_ok, skip = parsed
+            start = _try_parse_time_token(duty_m.group(1))
+            end = _try_parse_time_token(duty_m.group(2))
+            times_ok = start is not None and end is not None and shift_ok
+            ot_start = ot_end = None
             if shift_start is not None and shift_end is not None:
-                start, end = shift_start, shift_end
-                times_ok = shift_ok
-            else:
-                start = _try_parse_time_token(duty_m.group(1))
-                end = _try_parse_time_token(duty_m.group(2))
-                times_ok = start is not None and end is not None and shift_ok
+                if start is not None and end is not None and shift_start >= end:
+                    ot_start, ot_end = shift_start, shift_end
+                else:
+                    start, end = shift_start, shift_end
+                    times_ok = shift_ok
             draft = _get_or_create(entries, name)
             draft["status"] = _STATUS_ON_DUTY
             draft["start_time"] = start if times_ok else None
             draft["end_time"] = end if times_ok else None
+            if ot_start is not None and ot_end is not None:
+                draft["ot_start_time"] = ot_start
+                draft["ot_end_time"] = ot_end
             draft["skip_deduction"] = skip
             draft["note"] = apply_skip_deduction_note(note, skip)
             draft["is_trial"] = "试工" in (note or "").replace("带试工", "")
