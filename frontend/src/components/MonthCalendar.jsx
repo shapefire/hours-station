@@ -84,10 +84,6 @@ export default function MonthCalendar({
             ›
           </button>
         </div>
-        <p className="month-calendar__summary">
-          已登记 <Metric value={registeredDays} unit="天" chip /> · 合计{' '}
-          <Metric value={monthTotalHours} unit="h" chip />
-        </p>
       </header>
 
       <div className="month-calendar__weekdays" aria-hidden="true">
@@ -127,15 +123,21 @@ export default function MonthCalendar({
               <span className="month-calendar__day-num">{cell.day}</span>
               {hasData ? (
                 <span className="month-calendar__meta">
-                  <Metric value={summary.entry_count} unit="人" chip />
-                  <span className="month-calendar__meta-sep">·</span>
-                  <Metric value={summary.total_effective_hours} unit="h" chip />
+                  <Metric value={summary.entry_count} unit="人" />
+                  <Metric value={summary.total_effective_hours} unit="h" />
                 </span>
               ) : null}
             </button>
           )
         })}
       </div>
+
+      <footer className="month-calendar__metrics">
+        <p className="month-calendar__summary">
+          已登记 <Metric value={registeredDays} unit="天" /> · 合计{' '}
+          <Metric value={monthTotalHours} unit="h" />
+        </p>
+      </footer>
     </section>
   )
 }

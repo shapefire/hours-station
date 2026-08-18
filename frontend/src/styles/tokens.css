@@ -1,15 +1,29 @@
 :root {
-  --bg0: #f7f6f2;
-  --bg1: #eceae3;
-  --ink: #1c2416;
-  --muted: #5c6b52;
-  --accent: #3f5d2a;
-  --accent-soft: #dce8c8;
-  --lime: #b8d47a;
-  --rest: #8a6a3a;
-  --metric: #2f4a1c;
-  --metric-soft: #e4efd0;
-  --font-display: "Source Serif 4", Georgia, serif;
-  --font-body: "DM Sans", "Segoe UI", sans-serif;
-  --font-metric: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --bg-app: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --label: #1c1c1e;
+  --secondary: #8e8e93;
+  --tertiary: #c7c7cc;
+  --separator: rgba(60, 60, 67, 0.12);
+  --fill: rgba(120, 120, 128, 0.12);
+  --accent: #007aff;
+  --danger: #ff3b30;
+  --status-duty: #34c759;
+  --status-rest: #8e8e93;
+  --status-leave: #ff9500;
+  --status-support: #007aff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --radius-group: 12px;
+  --radius-pill: 980px;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* 迁移期别名 — 仍有引用，勿删 */
+  --bg0: var(--bg-app);
+  --bg1: var(--bg-app);
+  --ink: var(--label);
+  --muted: var(--secondary);
+  --accent-soft: var(--fill);
+  --lime: var(--status-duty);
+  --rest: var(--status-rest);
+  --metric: var(--label);
 }

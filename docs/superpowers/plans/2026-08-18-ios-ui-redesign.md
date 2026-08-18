@@ -74,7 +74,7 @@
 - Produces: `--bg-app`、`--bg-elevated`、`--label`、`--secondary`、`--tertiary`、`--separator`、`--accent`、`--danger`、`--fill`、`--status-duty|rest|leave|support`、`--radius-group`、`--radius-pill`、`--shadow`、`--font-body`；以及旧名别名（`--bg0`、`--ink`、`--muted`、`--font-display` 等指向新值）
 - Consumes: 无
 
-- [ ] **Step 1: 重写 `tokens.css`**
+- [x] **Step 1: 重写 `tokens.css`**
 
 ```css
 :root {
@@ -111,7 +111,7 @@
 }
 ```
 
-- [ ] **Step 2: 更新 `body` 与按钮基础（`global.css`）**
+- [x] **Step 2: 更新 `body` 与按钮基础（`global.css`）**
 
 去掉径向/绿色渐变背景与衬线依赖。`.btn--primary`：`--accent` 实心胶囊、白字；`.btn--ghost`：透明/白底 + hairline + `--accent` 字色；`.btn--danger`：`--danger`。
 
@@ -125,9 +125,9 @@ body {
 }
 ```
 
-- [ ] **Step 3: `index.html` 删除 Google Fonts 的 `preconnect` 与 stylesheet `link`（三行相关标签）。**
+- [x] **Step 3: `index.html` 删除 Google Fonts 的 `preconnect` 与 stylesheet `link`（三行相关标签）。**
 
-- [ ] **Step 4: 构建验收**
+- [x] **Step 4: 构建验收**
 
 Run: `cd frontend && npm run build`  
 Expected: exit 0。
@@ -151,7 +151,7 @@ git commit -m "将全局色板与字体切到 iOS 浅色系统风格，为全站
 - Consumes: Task 1 tokens
 - Produces: 顶栏「工时工作站 | 分段 nav | 齿轮」；路由仍为 `/`、`/stats`
 
-- [ ] **Step 1: 调整 `AppShell.jsx`**
+- [x] **Step 1: 调整 `AppShell.jsx`**
 
 删除 `<p className="app-shell__brand-sub">Hours Station</p>`。保留品牌名、NavLink、设置按钮与 `SettingsModal`。
 
@@ -171,7 +171,7 @@ git commit -m "将全局色板与字体切到 iOS 浅色系统风格，为全站
 </header>
 ```
 
-- [ ] **Step 2: CSS — 毛玻璃顶栏 + 分段**
+- [x] **Step 2: CSS — 毛玻璃顶栏 + 分段**
 
 ```css
 .app-shell__header {
@@ -214,7 +214,7 @@ git commit -m "将全局色板与字体切到 iOS 浅色系统风格，为全站
 
 删除依赖绿色描边/衬线的旧 `.app-shell*` 规则；可删 `.app-shell__brand-sub` 规则。
 
-- [ ] **Step 3: 手动验收**
+- [x] **Step 3: 手动验收**
 
 - 「工作日历 / 统计看板」切换正常
 - 齿轮仍打开设置
@@ -239,7 +239,7 @@ git commit -m "顶栏改为 iOS 分段导航样式，弱化品牌衬线装饰。
 - Consumes: Task 1 tokens
 - Produces: 左侧约 280px 紧凑月历 + 底部本月指标；右侧留给 DayPanel
 
-- [ ] **Step 1: 工作区网格**
+- [x] **Step 1: 工作区网格**
 
 ```css
 .calendar-page__workspace {
@@ -262,11 +262,11 @@ git commit -m "顶栏改为 iOS 分段导航样式，弱化品牌衬线装饰。
 }
 ```
 
-- [ ] **Step 2: 指标行**
+- [x] **Step 2: 指标行**
 
 `registeredDays` / `monthTotalHours` 仍在月历下方。`.metric` 改为次要灰标签 + 强调数字，去掉旧「农场绿」芯片观感。
 
-- [ ] **Step 3: 验收**
+- [x] **Step 3: 验收**
 
 - 切月、选日仍刷新右侧
 - `is-paste-mode` 类仍可用（若 CalendarPage 有）
@@ -290,7 +290,7 @@ git commit -m "压缩左侧月历视觉并固定窄栏，突出右侧当日主�
 - Consumes: 现有 `onAdd`、`setImportOpen`、`setPreviewOpen`、`onCopyDay`、`onClearDay`、`selectedDate`、`allCount`、`actionsLocked` 等
 - Produces: 「新增」仅在 `day-panel__header-actions`；短标签 + 完整 `title`/`aria-label`（见文案表）
 
-- [ ] **Step 1: 重构 header 结构**
+- [x] **Step 1: 重构 header 结构**
 
 将当前 `day-panel__header-main`（标题+stats+summary）与 `day-panel__header-actions` 改为：
 
@@ -324,9 +324,9 @@ git commit -m "压缩左侧月历视觉并固定窄栏，突出右侧当日主�
 
 禁用条件与改前各按钮一致（含 `selectedDate`、`allCount`、`formMode`/`draftCopy`/`pasteMode`/`addingSupport`/`supportBusy`/`statusSyncBusy` 等）。
 
-- [ ] **Step 2: 从到岗 `section-head` 移除「新增到岗」按钮**，避免重复入口。空日提示改为「点击「新增」开始录入。」
+- [x] **Step 2: 从到岗 `section-head` 移除「新增到岗」按钮**，避免重复入口。空日提示改为「点击「新增」开始录入。」
 
-- [ ] **Step 3: CSS — 强制一行**
+- [x] **Step 3: CSS — 强制一行**
 
 ```css
 .day-panel__header {
@@ -373,7 +373,7 @@ git commit -m "压缩左侧月历视觉并固定窄栏，突出右侧当日主�
 
 删除/改写 `@container day-panel` 里把 actions 整块堆到标题下的旧规则。
 
-- [ ] **Step 4: 验收**
+- [x] **Step 4: 验收**
 
 - 五个短按钮与日期同一行
 - 导入/预览/复制/清空/新增行为与改前一致
@@ -397,7 +397,7 @@ git commit -m "当日顶栏改为标题与一行短操作按钮并列，降低�
 - Consumes: 现有 `duty`/`rest`/`leave`/`support` 与 `StatusSection`、`EntryForm`、`SupportForm`、draft copy 等
 - Produces: 纵向：到岗 → 休息 → 请假 → 支援；空组显示标题 + 暂无
 
-- [ ] **Step 1: 去掉双栏包装**
+- [x] **Step 1: 去掉双栏包装**
 
 将：
 
@@ -417,11 +417,11 @@ git commit -m "当日顶栏改为标题与一行短操作按钮并列，降低�
 
 支援逻辑与 props 不变，仅 DOM 位置从「状态列」挪到列表末尾。
 
-- [ ] **Step 2: 行内状态点缀**
+- [x] **Step 2: 行内状态点缀**
 
 到岗行左侧 3px `border-left` 或伪元素用 `--status-duty`；休息/请假/支援 section-title 或行用对应 `--status-*`。勿整行大块染色。
 
-- [ ] **Step 3: CSS**
+- [x] **Step 3: CSS**
 
 ```css
 .day-panel__body {
@@ -456,7 +456,7 @@ git commit -m "当日顶栏改为标题与一行短操作按钮并列，降低�
 
 删除 `.day-panel__columns`、`.day-panel__col`、`.day-panel__col--duty`、`.day-panel__col--status` 及媒体查询中的双栏回退。
 
-- [ ] **Step 4: 验收**
+- [x] **Step 4: 验收**
 
 - 到岗按时间排序仍正确
 - 编辑/删除/复制单人/休息请假加班/支援 CRUD 可用
@@ -483,7 +483,7 @@ git commit -m "当日详情改为单列分组列表，去掉到岗与状态双�
 - Consumes: Task 1 tokens；现有 `total_hours`、`employee_count`、`attendance_person_days`
 - Produces: 三张 KPI inset 卡 + 人员表分组卡；设置仍为居中 modal，三段：备注预设 / 花名册 / 工时计算
 
-- [ ] **Step 1: Stats KPI 表面（保留现有三字段）**
+- [x] **Step 1: Stats KPI 表面（保留现有三字段）**
 
 当前结构已是 `.stats-kpi` + 三个 `.stats-kpi__item`（当月总工时 / 登记人数 / 出勤人天）。**不要**改成四个卡或其它指标。只改 CSS：
 
@@ -520,11 +520,11 @@ git commit -m "当日详情改为单列分组列表，去掉到岗与状态双�
 
 人员表外包一层白底圆角卡（`.stats-page__table-section` 或表格容器）。
 
-- [ ] **Step 2: Modal + 设置分段**
+- [x] **Step 2: Modal + 设置分段**
 
 `.modal-backdrop`：半透明黑；`.modal`：白底、大圆角（约 14px）、顶栏 `--separator`。主按钮蓝胶囊。`SettingsModal` 分区切换用与 AppShell 类似的 `fill` + active 白块（class 可复用或 `.settings-modal__tabs`）。不改保存/校验/导入逻辑。
 
-- [ ] **Step 3: 验收**
+- [x] **Step 3: 验收**
 
 - 统计切月、三 KPI 与人员表正确
 - 设置三区可开可存；花名册删除提示仍在
@@ -549,7 +549,7 @@ git commit -m "统计页与设置/业务弹层统一为 iOS 卡片与 sheet 表�
 - Consumes: Tasks 1–6 完成态
 - Produces: 无未引用的 `.day-panel__columns` 等；构建通过
 
-- [ ] **Step 1: Grep 清理**
+- [x] **Step 1: Grep 清理**
 
 ```bash
 rg "day-panel__columns|day-panel__col--|font-display|Source Serif|DM Sans|Hours Station" frontend/src frontend/index.html
@@ -557,7 +557,7 @@ rg "day-panel__columns|day-panel__col--|font-display|Source Serif|DM Sans|Hours 
 
 删除死规则；若组件仍引用旧 class 则改组件。旧 token 别名仅在 `rg "var\\(--bg0\\)|var\\(--lime\\)|..."` 无命中后从 `tokens.css` 删除。
 
-- [ ] **Step 2: 全功能手测清单（规格 §2）**
+- [x] **Step 2: 全功能手测清单（规格 §2）**
 
 | 项 | 期望 |
 |----|------|
@@ -571,7 +571,7 @@ rg "day-panel__columns|day-panel__col--|font-display|Source Serif|DM Sans|Hours 
 | 统计看板三 KPI + 表 | 正确 |
 | 设置三区 | 可保存 |
 
-- [ ] **Step 3: `cd frontend && npm run build`** — Expected: 成功。
+- [x] **Step 3: `cd frontend && npm run build`** — Expected: 成功。
 
 - [ ] **Step 4: Commit（若要求）**
 

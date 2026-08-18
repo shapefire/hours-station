@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatDayPreviewText, sumPreviewHours } from '../utils/dayPreviewText.js'
 import Metric from './Metric.jsx'
 
@@ -85,7 +86,7 @@ export default function DayPreviewModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal day-preview-modal"
@@ -143,6 +144,7 @@ export default function DayPreviewModal({
           </p>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

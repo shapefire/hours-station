@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api/client.js'
 import { notifyHoursRuleChanged } from '../settings/events.js'
 import { setHoursRuleLocal } from '../settings/hoursRule.js'
@@ -82,7 +83,7 @@ export default function SettingsModal({ open, onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal settings-modal"
@@ -109,7 +110,10 @@ export default function SettingsModal({ open, onClose }) {
         </header>
 
         <div className="settings-modal__layout">
-          <nav className="settings-modal__nav" aria-label="设置分区">
+          <nav
+            className="settings-modal__nav settings-modal__tabs"
+            aria-label="设置分区"
+          >
             {SECTIONS.map((item) => (
               <button
                 key={item.id}
@@ -187,6 +191,7 @@ export default function SettingsModal({ open, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

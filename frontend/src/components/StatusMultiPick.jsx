@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api/client.js'
 import Metric from './Metric.jsx'
 import RosterStatusBadge from './RosterStatusBadge.jsx'
@@ -116,7 +117,7 @@ export default function StatusMultiPick({
     onConfirm?.([...selected])
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal status-multi-pick"
@@ -212,6 +213,7 @@ export default function StatusMultiPick({
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

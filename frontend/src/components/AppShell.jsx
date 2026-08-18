@@ -30,7 +30,6 @@ export default function AppShell() {
       <header className="app-shell__header">
         <div className="app-shell__brand">
           <h1 className="app-shell__brand-name">工时工作站</h1>
-          <p className="app-shell__brand-sub">Hours Station</p>
         </div>
         <div className="app-shell__header-right">
           <nav className="app-shell__nav" aria-label="主导航">
