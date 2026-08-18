@@ -175,3 +175,12 @@ class HoursRuleIn(BaseModel):
 
 class HoursRuleOut(BaseModel):
     tiers: list[HoursRuleTierPayload]
+
+
+class DayNotePut(BaseModel):
+    note: str
+
+
+class DayNoteOut(BaseModel):
+    work_date: date
+    note: str | None

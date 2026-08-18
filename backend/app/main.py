@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import SessionLocal
 from app.migrate import run_alembic_upgrade, should_auto_migrate
-from app.routers import calendar, employees, entries, settings as settings_router, stats
+from app.routers import calendar, day_notes, employees, entries, settings as settings_router, stats
 from app.services.hours_rule_cache import load_hours_rule_cache
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(entries.router)
+app.include_router(day_notes.router)
 app.include_router(employees.router)
 app.include_router(calendar.router)
 app.include_router(stats.router)
