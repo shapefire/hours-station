@@ -553,6 +553,10 @@ export default function CalendarPage() {
           onSaveOvertime={handleSaveOvertime}
           dayNote={dayNoteDate === selectedDate ? dayNote : null}
           onSaveDayNote={handleSaveDayNote}
+          year={viewYear}
+          onImportSuccess={() =>
+            Promise.all([refreshCalendar(), refreshEntries(), refreshDayNote()])
+          }
         />
       </div>
     </div>

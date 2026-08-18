@@ -3,6 +3,7 @@ import EntryForm from './EntryForm.jsx'
 import EmployeeNameField from './EmployeeNameField.jsx'
 import TimeField from './TimeField.jsx'
 import DayPreviewModal from './DayPreviewModal.jsx'
+import RosterTextImportModal from './RosterTextImportModal.jsx'
 import Metric from './Metric.jsx'
 import HoursBreakdown from './HoursBreakdown.jsx'
 import NoteField from './NoteField.jsx'
@@ -416,9 +417,12 @@ export default function DayPanel({
   onSaveOvertime,
   dayNote = null,
   onSaveDayNote,
+  year = null,
+  onImportSuccess,
 }) {
   const bodyRef = useRef(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [multiPick, setMultiPick] = useState(null)
   const [addingSupport, setAddingSupport] = useState(false)
   const [supportError, setSupportError] = useState(null)
@@ -521,6 +525,15 @@ export default function DayPanel({
           />
         </div>
         <div className="day-panel__header-actions">
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => setImportOpen(true)}
+            disabled={!selectedDate}
+            title="粘贴排班文本，解析预览后批量导入"
+          >
+            文本导入
+          </button>
           <button
             type="button"
             className="btn btn--ghost"
@@ -801,6 +814,16 @@ export default function DayPanel({
         dateLabel={formatDisplayDate(selectedDate)}
         entries={entries}
         onClose={() => setPreviewOpen(false)}
+      />
+
+      <RosterTextImportModal
+        open={importOpen}
+        year={year}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => {
+          setImportOpen(false)
+          onImportSuccess?.()
+        }}
       />
 
       {multiPick ? (
