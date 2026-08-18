@@ -1,7 +1,7 @@
 # 到岗「未休息」跳过工时扣减
 
 日期：2026-08-19  
-状态：待用户审阅  
+状态：已确认  
 范围：到岗新增/编辑增加「未休息」勾选；勾选后主时段与加班段均不套用满点扣减；备注自动拼接「未休息不扣减」  
 相关代码：`backend/app/models.py`、`backend/app/services/hours.py`、`backend/app/services/entries.py`、`frontend/src/components/EntryForm.jsx`、`HoursBreakdown.jsx`、`frontend/src/utils/hours.js`
 
