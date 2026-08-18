@@ -22,6 +22,16 @@ def test_parse_duty_trial_and_note():
     assert "试工" in (by_name["林航"]["note"] or "")
 
 
+def test_parse_duty_dai_shi_gong_is_note_not_trial():
+    text = "8月17 周一\n11.5-19梓野（带试工吧台）6.5\n12-18飞云（香雪试工）吧台6"
+    day = parse_roster_text(text, year=2026)["days"][0]
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert by_name["梓野"]["is_trial"] is False
+    assert "带试工" in (by_name["梓野"]["note"] or "")
+    assert by_name["飞云"]["is_trial"] is True
+    assert "香雪试工" in (by_name["飞云"]["note"] or "")
+
+
 def test_parse_shift_change_paren():
     text = "8月4 周二\n8.5-19苑菱（早值、检查效期）10（10-23.5）"
     day = parse_roster_text(text, year=2026)["days"][0]
@@ -245,4 +255,162 @@ def test_gold_sample_aug4_shift_change_and_ot():
     assert by_name["继鹏"]["start_time"] is None
     assert by_name["洁怡"]["status"] == "support"
     assert "missing_support_times" in by_name["洁怡"]["errors"]
+    assert result["unparsed_lines"] == []
+
+
+def test_parse_duty_skip_meal_after_hours():
+    text = "8月17 周一 来货\n8-16苑菱(早值 检查效期）8(没吃饭）"
+    result = parse_roster_text(text, year=2026)
+    assert result["unparsed_lines"] == []
+    e = result["days"][0]["entries"][0]
+    assert e["name"] == "苑菱"
+    assert e["status"] == "on_duty"
+    assert e["start_time"] == time(8, 0)
+    assert e["end_time"] == time(16, 0)
+    assert e["skip_deduction"] is True
+    assert e["note"] == "早值 检查效期、没吃饭不扣减"
+
+
+def test_parse_duty_skip_meal_without_hours():
+    text = "8月17 周一\n8-16苑菱（早值）（没吃饭）"
+    e = parse_roster_text(text, year=2026)["days"][0]["entries"][0]
+    assert e["name"] == "苑菱"
+    assert e["skip_deduction"] is True
+    assert e["note"] == "早值、没吃饭不扣减"
+
+
+def test_parse_support_multiple_names_shared_times():
+    text = "8月17 周一\n支援美林：嘉岚  晓愉 8-17"
+    result = parse_roster_text(text, year=2026)
+    assert result["unparsed_lines"] == []
+    by_name = {e["name"]: e for e in result["days"][0]["entries"]}
+    assert set(by_name) == {"嘉岚", "晓愉"}
+    for name in ("嘉岚", "晓愉"):
+        e = by_name[name]
+        assert e["status"] == "support"
+        assert e["note"] == "美林"
+        assert e["start_time"] == time(8, 0)
+        assert e["end_time"] == time(17, 0)
+        assert e["errors"] == []
+        assert e["skip_deduction"] is False
+
+
+def test_parse_support_per_person_times_and_notes():
+    text = "8月19 周三\n支援利丰：洁惠11-19（加料） 嘉岚  12-20（水果）"
+    result = parse_roster_text(text, year=2026)
+    assert result["unparsed_lines"] == []
+    by_name = {e["name"]: e for e in result["days"][0]["entries"]}
+    assert set(by_name) == {"洁惠", "嘉岚"}
+    jiehui = by_name["洁惠"]
+    assert jiehui["status"] == "support"
+    assert jiehui["start_time"] == time(11, 0)
+    assert jiehui["end_time"] == time(19, 0)
+    assert jiehui["note"] == "利丰、加料"
+    assert jiehui["errors"] == []
+    jialan = by_name["嘉岚"]
+    assert jialan["status"] == "support"
+    assert jialan["start_time"] == time(12, 0)
+    assert jialan["end_time"] == time(20, 0)
+    assert jialan["note"] == "利丰、水果"
+    assert jialan["errors"] == []
+
+
+def test_empty_rest_line_is_ignored():
+    text = "8月19 周三\n7.5-16洁怡（水果位）\n休息:"
+    result = parse_roster_text(text, year=2026)
+    assert result["unparsed_lines"] == []
+    assert [e["name"] for e in result["days"][0]["entries"]] == ["洁怡"]
+
+
+AUG17_SAMPLE = """8月17       周一   来货
+8-16苑菱(早值 检查效期）8(没吃饭）
+7.5-16家进（制备位）8
+7.5-16佳博（水果位）8
+7.5-15浩媚（香雪试工水果）7
+10-17锶锴6
+12-18飞云（香雪试工）吧台6
+11.5-19梓野（带试工吧台）6.5
+13-19嘉允（香雪试工）吧台6
+13-20洁惠（周清制冰机）6.5
+14-23.5林航（香雪培训）9
+13.5-23.5晓玲（晚值 检查效期 卫生）9.5
+14.5-23.5晓丹（接制备 ）8.5
+16-23.5佳佳（学水果位)7.5
+
+休息: 洁怡 继鹏
+支援上社：小帅 8-17
+支援美林：嘉岚  晓愉 8-17
+"""
+
+
+def test_gold_sample_aug17():
+    result = parse_roster_text(AUG17_SAMPLE, year=2026)
+    day = result["days"][0]
+    assert day["work_date"] == date(2026, 8, 17)
+    assert day["day_note"] == "来货"
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert by_name["苑菱"]["skip_deduction"] is True
+    assert by_name["苑菱"]["start_time"] == time(8, 0)
+    assert by_name["苑菱"]["end_time"] == time(16, 0)
+    assert by_name["嘉岚"]["status"] == "support"
+    assert by_name["晓愉"]["status"] == "support"
+    assert by_name["嘉岚"]["start_time"] == time(8, 0)
+    assert by_name["小帅"]["status"] == "support"
+    assert by_name["小帅"]["note"] == "上社"
+    assert by_name["洁怡"]["status"] == "rest"
+    assert by_name["飞云"]["name"] == "飞云"
+    assert by_name["飞云"]["is_trial"] is True
+    assert "吧台" in (by_name["飞云"]["note"] or "")
+    assert by_name["梓野"]["is_trial"] is False
+    assert "带试工" in (by_name["梓野"]["note"] or "")
+    assert by_name["嘉允"]["name"] == "嘉允"
+    assert "吧台" in (by_name["嘉允"]["note"] or "")
+    assert result["unparsed_lines"] == []
+
+
+AUG19_SAMPLE = """8月19      周三
+7.5-16梓野（ 早值、看制备）
+7.5-16嘉允（学制备、香雪试工）
+7.5-16洁怡（水果位）
+7.5-16浩媚（香雪试工水果）
+9-16锶锴
+10-16飞云（香雪试工）吧台
+11-17晓愉
+12-19继鹏
+13-18美淇（香雪试工）
+13-20林航（香雪培训）
+14-21晓丹             
+14-23.5晓玲（晚值 检查效期 ）
+14.5-23.5小帅（制备 ）
+16-23.5家进（水果）
+休息:
+支援利丰：洁惠11-19（加料） 嘉岚  12-20（水果）
+支援香雪：佳博  佳佳
+"""
+
+
+def test_gold_sample_aug19():
+    result = parse_roster_text(AUG19_SAMPLE, year=2026)
+    day = result["days"][0]
+    assert day["work_date"] == date(2026, 8, 19)
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert by_name["嘉允"]["is_trial"] is True
+    assert by_name["飞云"]["is_trial"] is True
+    assert "吧台" in (by_name["飞云"]["note"] or "")
+    jiehui = by_name["洁惠"]
+    assert jiehui["status"] == "support"
+    assert jiehui["start_time"] == time(11, 0)
+    assert jiehui["end_time"] == time(19, 0)
+    assert jiehui["note"] == "利丰、加料"
+    jialan = by_name["嘉岚"]
+    assert jialan["status"] == "support"
+    assert jialan["start_time"] == time(12, 0)
+    assert jialan["end_time"] == time(20, 0)
+    assert jialan["note"] == "利丰、水果"
+    assert by_name["佳博"]["status"] == "support"
+    assert by_name["佳佳"]["status"] == "support"
+    assert by_name["佳博"]["note"] == "香雪"
+    assert "missing_support_times" in by_name["佳博"]["errors"]
+    assert "missing_support_times" in by_name["佳佳"]["errors"]
+    assert "洁怡" not in by_name or by_name["洁怡"]["status"] == "on_duty"
     assert result["unparsed_lines"] == []

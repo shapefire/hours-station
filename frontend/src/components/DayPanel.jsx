@@ -265,7 +265,7 @@ function DraftCopyRow({
               }}
               disabled={busy}
             />
-            未休息
+            没吃饭
           </label>
         </div>
         {error ? <p className="day-panel__draft-error">{error}</p> : null}

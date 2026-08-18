@@ -202,6 +202,7 @@ class RosterImportPreviewEntry(BaseModel):
     ot_start_time: time | None = None
     ot_end_time: time | None = None
     is_trial: bool = False
+    skip_deduction: bool = False
     note: str | None = None
     errors: list[str] = Field(default_factory=list)
 
@@ -232,6 +233,7 @@ class RosterImportCommitEntry(BaseModel):
     ot_start_time: time | None = None
     ot_end_time: time | None = None
     is_trial: bool = False
+    skip_deduction: bool = False
     note: str | None = None
 
 

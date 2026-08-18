@@ -186,7 +186,7 @@ def test_copy_day_preserves_skip_deduction(client):
     assert len(target) == 1
     assert target[0]["skip_deduction"] is True
     assert target[0]["effective_hours"] == "8.5"
-    assert "未休息不扣减" in (target[0]["note"] or "")
+    assert "没吃饭不扣减" in (target[0]["note"] or "")
 
 
 def test_copy_person_preserves_skip_deduction(client):
@@ -206,4 +206,4 @@ def test_copy_person_preserves_skip_deduction(client):
     body = r.json()
     assert body["skip_deduction"] is True
     assert body["effective_hours"] == "8.5"
-    assert "未休息不扣减" in (body["note"] or "")
+    assert "没吃饭不扣减" in (body["note"] or "")

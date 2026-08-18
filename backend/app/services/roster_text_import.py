@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.services.day_notes import put_day_note
 from app.services.entries import create_entry, list_entries_by_date, update_entry
+from app.services.skip_deduction_note import apply_skip_deduction_note
 
 TIME_TOKEN = r"(\d{1,2}(?:\.\d)?)"
 TIME_RANGE = rf"{TIME_TOKEN}-{TIME_TOKEN}"
@@ -16,16 +17,21 @@ _DATE_MD_RE = re.compile(
 )
 _WEEKDAY_RE = re.compile(r"(?:周[一二三四五六日天]|星期.)")
 _TOTAL_RE = re.compile(r"^\s*总\s*[:：]")
-_REST_LEAVE_RE = re.compile(r"^(休息|请假)\s*[:：]\s*(.+)$")
+_REST_LEAVE_RE = re.compile(r"^(休息|请假)\s*[:：]\s*(.*)$")
 _SUPPORT_RE = re.compile(r"^支援([^:：]*)[:：]\s*(.+)$")
 _DUTY_RE = re.compile(rf"^{TIME_RANGE}(.+)$")
 _OT_RE = re.compile(rf"^([\u4e00-\u9fff]{{2,4}}){TIME_RANGE}\s*$")
 _SHIFT_CHANGE_RE = re.compile(rf"[（(]{TIME_RANGE}[）)]\s*$")
 _TRAILING_HOURS_RE = re.compile(rf"{TIME_TOKEN}\s*$")
-_NOTE_RE = re.compile(r"[（(](.+?)[）)]")
 _NAME_SPLIT_RE = re.compile(r"[\s、,，]+")
 _PERSON_NAME_RE = re.compile(r"^[\u4e00-\u9fffA-Za-z]{2,4}$")
-_SUPPORT_BODY_RE = re.compile(rf"^([\u4e00-\u9fffA-Za-z]{{2,4}})\s*(?:{TIME_RANGE})?\s*$")
+_SUPPORT_PERSON_RE = re.compile(
+    rf"([\u4e00-\u9fffA-Za-z]{{2,4}})"
+    rf"(?:\s*{TIME_RANGE})?"
+    rf"(?:\s*[（(]([^（()）]*)[）)])?"
+)
+_SKIP_PHRASES = ("没吃饭不扣减", "未休息不扣减", "没吃饭", "未休息")
+_NAME_SUFFIX_RE = re.compile(r"^[\u4e00-\u9fffA-Za-z]+$")
 
 _STATUS_REST = "rest"
 _STATUS_LEAVE = "leave"
@@ -69,9 +75,38 @@ def _empty_draft(name: str) -> dict:
         "ot_start_time": None,
         "ot_end_time": None,
         "is_trial": False,
+        "skip_deduction": False,
         "note": None,
         "errors": [],
     }
+
+
+def _strip_skip_phrases(text: str) -> tuple[str | None, bool]:
+    skip = False
+    rest = text
+    for phrase in _SKIP_PHRASES:
+        if phrase in rest:
+            skip = True
+            rest = rest.replace(phrase, "")
+    rest = re.sub(r"[、]{2,}", "、", rest)
+    rest = rest.strip(" 、")
+    return (rest or None), skip
+
+
+def _split_name_and_suffix(rest: str) -> tuple[str, str | None] | None:
+    rest = rest.strip()
+    if not rest:
+        return None
+    if _PERSON_NAME_RE.match(rest) and len(rest) <= 3:
+        return rest, None
+    if len(rest) >= 4:
+        for nlen in (2, 3):
+            name, suffix = rest[:nlen], rest[nlen:].strip()
+            if _PERSON_NAME_RE.match(name) and suffix and _NAME_SUFFIX_RE.match(suffix):
+                return name, suffix
+    if _PERSON_NAME_RE.match(rest):
+        return rest, None
+    return None
 
 
 def _get_or_create(entries: dict[str, dict], name: str) -> dict:
@@ -84,8 +119,8 @@ def _get_or_create(entries: dict[str, dict], name: str) -> dict:
 
 def _parse_duty_payload(
     rest: str,
-) -> tuple[str, str | None, time | None, time | None, bool] | None:
-    """Returns (name, note, shift_start, shift_end, times_ok) or None if not a duty payload."""
+) -> tuple[str, str | None, time | None, time | None, bool, bool] | None:
+    """Returns (name, note, shift_start, shift_end, times_ok, skip_deduction)."""
     rest = rest.strip()
     shift_start = shift_end = None
     times_ok = True
@@ -97,18 +132,79 @@ def _parse_duty_payload(
             times_ok = False
             shift_start = shift_end = None
         rest = rest[: shift_m.start()].rstrip()
+
+    notes: list[str] = []
+    skip = False
+    while True:
+        paren_m = re.search(r"[（(]([^（()）]*)[）)]", rest)
+        if not paren_m:
+            break
+        cleaned, inner_skip = _strip_skip_phrases(paren_m.group(1).strip())
+        skip = skip or inner_skip
+        if cleaned:
+            notes.append(cleaned)
+        rest = f"{rest[: paren_m.start()]}{rest[paren_m.end():]}".strip()
+
     hours_m = _TRAILING_HOURS_RE.search(rest)
     if hours_m:
         rest = rest[: hours_m.start()].rstrip()
-    note = None
-    note_m = _NOTE_RE.search(rest)
-    if note_m:
-        note = note_m.group(1).strip() or None
-        rest = f"{rest[: note_m.start()]}{rest[note_m.end():]}".strip()
-    name = rest.strip()
-    if not _PERSON_NAME_RE.match(name):
+
+    leftover_skip = False
+    split = _split_name_and_suffix(rest)
+    if split is None:
+        rest, leftover_skip = _strip_skip_phrases(rest)
+        skip = skip or leftover_skip
+        split = _split_name_and_suffix(rest or "")
+        if split is None:
+            return None
+    name, suffix = split
+    if suffix:
+        notes.append(suffix)
+    note = "、".join(notes) if notes else None
+    note, note_skip = _strip_skip_phrases(note or "")
+    skip = skip or note_skip
+    return name, note, shift_start, shift_end, times_ok, skip
+
+
+def _parse_support_body(
+    body: str,
+) -> list[tuple[str, time | None, time | None, bool, str | None]] | None:
+    body = body.strip()
+    if not body:
         return None
-    return name, note, shift_start, shift_end, times_ok
+    people: list[tuple[str, time | None, time | None, bool, str | None]] = []
+    pos = 0
+    length = len(body)
+    while pos < length:
+        while pos < length and body[pos] in " \t、,，":
+            pos += 1
+        if pos >= length:
+            break
+        match = _SUPPORT_PERSON_RE.match(body, pos)
+        if not match:
+            return None
+        name = match.group(1)
+        start = end = None
+        times_ok = True
+        if match.group(2) and match.group(3):
+            start = _try_parse_time_token(match.group(2))
+            end = _try_parse_time_token(match.group(3))
+            if start is None or end is None:
+                times_ok = False
+                start = end = None
+        extra = (match.group(4) or "").strip() or None
+        people.append((name, start, end, times_ok, extra))
+        pos = match.end()
+    if not people:
+        return None
+    last_start, last_end, last_ok = people[-1][1], people[-1][2], people[-1][3]
+    earlier_has_time = any(person[1] is not None for person in people[:-1])
+    if last_start is not None and not earlier_has_time:
+        people = [
+            (name, last_start, last_end, last_ok, extra)
+            for name, _start, _end, _ok, extra in people
+        ]
+    return people
 
 
 def _split_names(blob: str) -> list[str]:
@@ -186,41 +282,41 @@ def parse_roster_text(text: str, *, year: int) -> dict:
 
         rest_leave_m = _REST_LEAVE_RE.match(line)
         if rest_leave_m:
+            names = _split_names(rest_leave_m.group(2))
+            if not names:
+                continue
             status = _STATUS_REST if rest_leave_m.group(1) == "休息" else _STATUS_LEAVE
-            for name in _split_names(rest_leave_m.group(2)):
+            for name in names:
                 draft = _get_or_create(entries, name)
                 draft["status"] = status
                 draft["start_time"] = None
                 draft["end_time"] = None
                 draft["is_trial"] = False
+                draft["skip_deduction"] = False
             continue
 
         support_m = _SUPPORT_RE.match(line)
         if support_m:
             location = support_m.group(1).strip() or None
-            body_m = _SUPPORT_BODY_RE.match(support_m.group(2).strip())
-            if body_m is None:
+            parsed_people = _parse_support_body(support_m.group(2))
+            if parsed_people is None:
                 unparsed_lines.append(line)
                 continue
-            name = body_m.group(1)
-            draft = _get_or_create(entries, name)
-            draft["status"] = _STATUS_SUPPORT
-            draft["note"] = location
-            draft["is_trial"] = False
-            if body_m.group(2) and body_m.group(3):
-                start = _try_parse_time_token(body_m.group(2))
-                end = _try_parse_time_token(body_m.group(3))
-                if start is None or end is None:
-                    draft["start_time"] = None
-                    draft["end_time"] = None
-                    if "invalid_time_range" not in draft["errors"]:
-                        draft["errors"].append("invalid_time_range")
-                else:
+            for name, start, end, times_ok, extra_note in parsed_people:
+                draft = _get_or_create(entries, name)
+                draft["status"] = _STATUS_SUPPORT
+                note_parts = [part for part in (location, extra_note) if part]
+                draft["note"] = "、".join(note_parts) if note_parts else None
+                draft["is_trial"] = False
+                draft["skip_deduction"] = False
+                if start is not None and end is not None:
                     draft["start_time"] = start
                     draft["end_time"] = end
-            else:
-                draft["start_time"] = None
-                draft["end_time"] = None
+                else:
+                    draft["start_time"] = None
+                    draft["end_time"] = None
+                    if not times_ok and "invalid_time_range" not in draft["errors"]:
+                        draft["errors"].append("invalid_time_range")
             continue
 
         duty_m = _DUTY_RE.match(line)
@@ -229,7 +325,7 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             if parsed is None:
                 unparsed_lines.append(line)
                 continue
-            name, note, shift_start, shift_end, shift_ok = parsed
+            name, note, shift_start, shift_end, shift_ok, skip = parsed
             if shift_start is not None and shift_end is not None:
                 start, end = shift_start, shift_end
                 times_ok = shift_ok
@@ -241,8 +337,9 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             draft["status"] = _STATUS_ON_DUTY
             draft["start_time"] = start if times_ok else None
             draft["end_time"] = end if times_ok else None
-            draft["note"] = note
-            draft["is_trial"] = "试工" in (note or "")
+            draft["skip_deduction"] = skip
+            draft["note"] = apply_skip_deduction_note(note, skip)
+            draft["is_trial"] = "试工" in (note or "").replace("带试工", "")
             if not times_ok and "invalid_time_range" not in draft["errors"]:
                 draft["errors"].append("invalid_time_range")
             continue
@@ -291,6 +388,7 @@ def commit_roster_import(db: Session, days: list[dict]) -> dict:
             fields = {
                 "status": status,
                 "is_trial": draft.get("is_trial", False),
+                "skip_deduction": bool(draft.get("skip_deduction", False)),
                 "note": draft.get("note"),
                 "ot_start_time": draft.get("ot_start_time"),
                 "ot_end_time": draft.get("ot_end_time"),
@@ -311,6 +409,7 @@ def commit_roster_import(db: Session, days: list[dict]) -> dict:
                     name=name,
                     status=status,
                     is_trial=fields["is_trial"],
+                    skip_deduction=fields["skip_deduction"],
                     start_time=draft.get("start_time"),
                     end_time=draft.get("end_time"),
                     note=fields["note"],

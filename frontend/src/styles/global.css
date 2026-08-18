@@ -1019,6 +1019,16 @@ textarea {
   font-size: 0.9rem;
 }
 
+.day-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.day-panel__list > .day-panel__item {
+  list-style: none;
+}
+
 .day-panel__list--duty {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1483,7 +1493,7 @@ textarea {
 
 .roster-import-table__trial {
   text-align: center;
-  width: 3.2rem;
+  width: 4.4rem;
 }
 
 .roster-import-table__note {

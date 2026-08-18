@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/client.js'
 import TimeField from './TimeField.jsx'
+import { applySkipDeductionNote } from '../utils/skipDeductionNote.js'
 
 const STATUS_OPTIONS = [
   { value: 'on_duty', label: '到岗' },
@@ -69,6 +70,7 @@ function normalizePreviewDays(days) {
         ot_start_time: toTimeValue(entry.ot_start_time),
         ot_end_time: toTimeValue(entry.ot_end_time),
         is_trial: !!entry.is_trial,
+        skip_deduction: !!entry.skip_deduction,
         note: entry.note || '',
       }
       return { ...next, errors: recomputeEntryErrors(next) }
@@ -113,6 +115,7 @@ function buildCommitDays(days) {
           ot_start_time: timeOrNull(entry.ot_start_time),
           ot_end_time: timeOrNull(entry.ot_end_time),
           is_trial: status === 'on_duty' ? !!entry.is_trial : false,
+          skip_deduction: status === 'on_duty' ? !!entry.skip_deduction : false,
           note: String(entry.note || '').trim() || null,
         }
       }),
@@ -238,8 +241,16 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
             next.start_time = ''
             next.end_time = ''
             next.is_trial = false
+            next.skip_deduction = false
+            next.note = applySkipDeductionNote(next.note, false)
           } else if (patch.status === 'support') {
             next.is_trial = false
+            next.skip_deduction = false
+            next.note = applySkipDeductionNote(next.note, false)
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'skip_deduction')) {
+            next.skip_deduction = !!patch.skip_deduction && next.status === 'on_duty'
+            next.note = applySkipDeductionNote(next.note, next.skip_deduction)
           }
           next.errors = recomputeEntryErrors(next)
           return next
@@ -350,6 +361,7 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                             <th>主时段</th>
                             <th>加班</th>
                             <th>试工</th>
+                            <th>没吃饭</th>
                             <th>备注</th>
                             <th>问题</th>
                           </tr>
@@ -435,6 +447,19 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                                     aria-label={`${entry.name} 试工`}
                                     onChange={(event) =>
                                       updateEntry(dayIndex, entryIndex, { is_trial: event.target.checked })
+                                    }
+                                  />
+                                </td>
+                                <td className="roster-import-table__trial">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!entry.skip_deduction}
+                                    disabled={busy || entry.status !== 'on_duty'}
+                                    aria-label={`${entry.name} 没吃饭`}
+                                    onChange={(event) =>
+                                      updateEntry(dayIndex, entryIndex, {
+                                        skip_deduction: event.target.checked,
+                                      })
                                     }
                                   />
                                 </td>

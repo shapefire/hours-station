@@ -113,6 +113,46 @@ def test_commit_all_or_nothing_rolls_back(client):
     assert note["note"] is None
 
 
+def test_preview_and_commit_skip_deduction_from_meal_note(client):
+    preview = client.post(
+        "/api/entries/import/preview",
+        json={
+            "text": "8月17 周一\n8-16苑菱(早值 检查效期）8(没吃饭）",
+            "year": 2026,
+        },
+    )
+    assert preview.status_code == 200
+    entry = preview.json()["days"][0]["entries"][0]
+    assert entry["skip_deduction"] is True
+    assert "没吃饭不扣减" in (entry["note"] or "")
+
+    r = client.post(
+        "/api/entries/import/commit",
+        json={
+            "days": [{
+                "work_date": "2026-08-17",
+                "entries": [{
+                    "name": "苑菱",
+                    "status": "on_duty",
+                    "start_time": "07:30",
+                    "end_time": "16:00",
+                    "ot_start_time": None,
+                    "ot_end_time": None,
+                    "is_trial": False,
+                    "skip_deduction": True,
+                    "note": "早值 检查效期",
+                }],
+            }]
+        },
+    )
+    assert r.status_code == 200
+    listed = client.get("/api/entries", params={"date": "2026-08-17"}).json()
+    body = listed[0]
+    assert body["skip_deduction"] is True
+    assert body["effective_hours"] == "8.5"
+    assert "没吃饭不扣减" in (body["note"] or "")
+
+
 def test_preview_invalid_date_keeps_following_duty(client):
     r = client.post(
         "/api/entries/import/preview",

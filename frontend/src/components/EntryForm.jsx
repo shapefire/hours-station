@@ -243,7 +243,7 @@ export default function EntryForm({
             }}
             disabled={busy}
           />
-          未休息
+          没吃饭
         </label>
       </div>
 

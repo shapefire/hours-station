@@ -285,7 +285,7 @@ def test_on_duty_skip_deduction_no_half_hour(client):
     body = r.json()
     assert body["skip_deduction"] is True
     assert body["effective_hours"] == "8.5"
-    assert "未休息不扣减" in (body["note"] or "")
+    assert "没吃饭不扣减" in (body["note"] or "")
 
 
 def test_on_duty_without_skip_still_deducts(client):
@@ -310,4 +310,4 @@ def test_rest_rejects_keeping_skip(client):
     r = client.patch(f"/api/entries/{created['id']}", json={"status": "rest", "clear_times": True})
     assert r.status_code == 200
     assert r.json()["skip_deduction"] is False
-    assert "未休息不扣减" not in (r.json()["note"] or "")
+    assert "没吃饭不扣减" not in (r.json()["note"] or "")
