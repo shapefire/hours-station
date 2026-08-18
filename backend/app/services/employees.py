@@ -9,7 +9,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Employee, WorkEntry
-from app.services.hours import effective_hours
 
 _ROSTER_SPLIT = re.compile(r"[\s、,，；;]+")
 
@@ -99,6 +98,8 @@ def import_employees(db: Session, text: str) -> dict:
 
 
 def _month_hours_by_employee(db: Session, year: int, month: int) -> dict[UUID, Decimal]:
+    from app.services.entries import entry_hours_decimal
+
     start = date(year, month, 1)
     end = date(year, month, monthrange(year, month)[1])
     entries = list(
@@ -111,11 +112,16 @@ def _month_hours_by_employee(db: Session, year: int, month: int) -> dict[UUID, D
     )
     totals: dict[UUID, Decimal] = {}
     for entry in entries:
-        if entry.status != "on_duty":
+        if entry.status == "support":
             continue
-        if entry.start_time is None or entry.end_time is None:
+        if entry.status == "on_duty":
+            hours = entry_hours_decimal(entry)
+        elif entry.status in ("rest", "leave"):
+            if entry.ot_start_time is None or entry.ot_end_time is None:
+                continue
+            hours = entry_hours_decimal(entry)
+        else:
             continue
-        hours = effective_hours(entry.start_time, entry.end_time)
         totals[entry.employee_id] = totals.get(entry.employee_id, Decimal("0")) + hours
     return totals
 

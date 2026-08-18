@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Employee, WorkEntry
-from app.services.hours import effective_hours
+from app.services.entries import entry_hours_decimal, format_entry_hours
 
 _STATUS_MAP = {
     "on_duty": "work",
@@ -54,11 +54,15 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
         attendance_days = len({e.work_date for e in duty_entries})
         support_days = len({e.work_date for e in support_entries})
         support_total = sum(
-            (effective_hours(e.start_time, e.end_time) for e in support_entries),
+            (entry_hours_decimal(e) for e in support_entries),
             Decimal("0"),
         )
         total = sum(
-            (effective_hours(e.start_time, e.end_time) for e in duty_entries),
+            (entry_hours_decimal(e) for e in duty_entries),
+            Decimal("0"),
+        )
+        total += sum(
+            (entry_hours_decimal(e) for e in emp_entries if e.status in ("rest", "leave")),
             Decimal("0"),
         )
         month_total += total
@@ -128,7 +132,9 @@ def employee_month_days(
             st = _STATUS_MAP[entry.status]
             hours = None
             if entry.status in ("on_duty", "support"):
-                hours = _format_hours(effective_hours(entry.start_time, entry.end_time))
+                hours = format_entry_hours(entry)
+            elif entry.status in ("rest", "leave") and entry_hours_decimal(entry) > 0:
+                hours = format_entry_hours(entry)
             days.append(
                 {
                     "date": day,

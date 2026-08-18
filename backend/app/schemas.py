@@ -15,6 +15,8 @@ class EntryCreate(BaseModel):
     is_trial: bool = False
     start_time: time | None = None
     end_time: time | None = None
+    ot_start_time: time | None = None
+    ot_end_time: time | None = None
     note: str | None = None
     # 状态与时段/标识组合校验在 entries 服务层，保证 ValueError → 400（非 Pydantic 422）
 
@@ -26,8 +28,10 @@ class EntryUpdate(BaseModel):
     is_trial: bool | None = None
     start_time: time | None = None
     end_time: time | None = None
+    ot_start_time: time | None = None
+    ot_end_time: time | None = None
     note: str | None = None
-    clear_times: bool = False  # 若改为 rest/leave，服务层清空时段
+    clear_times: bool = False  # 若改为 rest/leave，服务层清空时段；不清加班段
 
 
 class CopyDayIn(BaseModel):
@@ -59,10 +63,12 @@ class EntryOut(BaseModel):
     is_trial: bool
     start_time: time | None
     end_time: time | None
+    ot_start_time: time | None
+    ot_end_time: time | None
     note: str | None
     effective_hours: str
 
-    @field_serializer("start_time", "end_time")
+    @field_serializer("start_time", "end_time", "ot_start_time", "ot_end_time")
     def serialize_time(self, value: time | None) -> str | None:
         if value is None:
             return None

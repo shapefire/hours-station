@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import WorkEntry
 from app.schemas import CalendarDayOut, CalendarMonthOut
-from app.services.hours import effective_hours
+from app.services.entries import entry_hours_decimal
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
@@ -43,18 +43,26 @@ def get_calendar_month(
     days: list[CalendarDayOut] = []
     month_total = Decimal("0")
     for work_date in sorted(by_date):
-        day_entries = [e for e in by_date[work_date] if e.status == "on_duty"]
-        if not day_entries:
+        contributing: list[WorkEntry] = []
+        day_total = Decimal("0")
+        for entry in by_date[work_date]:
+            if entry.status == "support":
+                continue
+            if entry.status == "on_duty":
+                contributing.append(entry)
+                day_total += entry_hours_decimal(entry)
+            elif entry.status in ("rest", "leave"):
+                hours = entry_hours_decimal(entry)
+                if hours > 0:
+                    contributing.append(entry)
+                    day_total += hours
+        if not contributing:
             continue
-        day_total = sum(
-            (effective_hours(e.start_time, e.end_time) for e in day_entries),
-            Decimal("0"),
-        )
         month_total += day_total
         days.append(
             CalendarDayOut(
                 date=work_date,
-                entry_count=len(day_entries),
+                entry_count=len(contributing),
                 total_effective_hours=_format_hours(day_total),
             )
         )

@@ -23,6 +23,27 @@ def format_effective_hours(start: time, end: time) -> str:
     return f"{hours:.1f}"
 
 
+def _normalize_ot_times(
+    ot_start_time: time | None,
+    ot_end_time: time | None,
+) -> tuple[time | None, time | None]:
+    if ot_start_time is None and ot_end_time is None:
+        return None, None
+    if ot_start_time is None or ot_end_time is None:
+        raise ValueError("加班时段须同时填写开始与结束")
+    format_effective_hours(ot_start_time, ot_end_time)  # 校验 end>start
+    return ot_start_time, ot_end_time
+
+
+def entry_hours_decimal(entry: WorkEntry) -> Decimal:
+    total = Decimal("0")
+    if entry.start_time is not None and entry.end_time is not None:
+        total += effective_hours(entry.start_time, entry.end_time)
+    if entry.ot_start_time is not None and entry.ot_end_time is not None:
+        total += effective_hours(entry.ot_start_time, entry.ot_end_time)
+    return total.quantize(Decimal("0.1"))
+
+
 def _normalize_entry_fields(
     *,
     status: str,
@@ -54,9 +75,7 @@ def _normalize_entry_fields(
 
 
 def format_entry_hours(entry: WorkEntry) -> str:
-    if entry.status in ("rest", "leave") or entry.start_time is None or entry.end_time is None:
-        return "0.0"
-    return format_effective_hours(entry.start_time, entry.end_time)
+    return f"{entry_hours_decimal(entry):.1f}"
 
 
 def entry_to_dict(entry: WorkEntry) -> dict:
@@ -70,6 +89,8 @@ def entry_to_dict(entry: WorkEntry) -> dict:
         "is_trial": entry.is_trial,
         "start_time": entry.start_time,
         "end_time": entry.end_time,
+        "ot_start_time": entry.ot_start_time,
+        "ot_end_time": entry.ot_end_time,
         "note": entry.note,
         "effective_hours": format_entry_hours(entry),
     }
@@ -113,6 +134,8 @@ def create_entry(
     start_time: time | None = None,
     end_time: time | None = None,
     note: str | None = None,
+    ot_start_time: time | None = None,
+    ot_end_time: time | None = None,
 ) -> WorkEntry:
     status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
         status=status,
@@ -121,6 +144,7 @@ def create_entry(
         start_time=start_time,
         end_time=end_time,
     )
+    ot_start_time, ot_end_time = _normalize_ot_times(ot_start_time, ot_end_time)
     employee = get_or_create_employee(db, name)
     _ensure_unique_day_employee(db, work_date=work_date, employee_id=employee.id)
 
@@ -132,6 +156,8 @@ def create_entry(
         is_trial=is_trial,
         start_time=start_time,
         end_time=end_time,
+        ot_start_time=ot_start_time,
+        ot_end_time=ot_end_time,
         note=note,
     )
     try:
@@ -203,11 +229,20 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
         start_time=start_time,
         end_time=end_time,
     )
+    if "ot_start_time" in fields or "ot_end_time" in fields:
+        ot_start_time = fields["ot_start_time"] if "ot_start_time" in fields else entry.ot_start_time
+        ot_end_time = fields["ot_end_time"] if "ot_end_time" in fields else entry.ot_end_time
+    else:
+        ot_start_time = entry.ot_start_time
+        ot_end_time = entry.ot_end_time
+    ot_start_time, ot_end_time = _normalize_ot_times(ot_start_time, ot_end_time)
     entry.status = status
     entry.is_external = is_external
     entry.is_trial = is_trial
     entry.start_time = start_time
     entry.end_time = end_time
+    entry.ot_start_time = ot_start_time
+    entry.ot_end_time = ot_end_time
 
     _ensure_unique_day_employee(
         db,
@@ -270,6 +305,8 @@ def copy_day(db: Session, *, from_date: date, to_date: date) -> dict:
             is_trial=source.is_trial,
             start_time=source.start_time,
             end_time=source.end_time,
+            ot_start_time=source.ot_start_time,
+            ot_end_time=source.ot_end_time,
             note=source.note,
         )
         try:
@@ -308,4 +345,6 @@ def copy_person(
         start_time=source.start_time,
         end_time=source.end_time,
         note=source.note,
+        ot_start_time=source.ot_start_time,
+        ot_end_time=source.ot_end_time,
     )
