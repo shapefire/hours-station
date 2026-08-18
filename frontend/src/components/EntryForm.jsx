@@ -119,7 +119,7 @@ export default function EntryForm({
           value={form.note}
           onChange={(note) => updateField('note', note)}
           disabled={busy}
-          placeholder="可选，选择预设或输入"
+          placeholder="可选，可多选预设或输入"
         />
       </label>
 

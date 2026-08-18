@@ -133,7 +133,7 @@ function DraftCopyRow({
             onChange={setNote}
             disabled={busy}
             maxLength={500}
-            placeholder="可选，选择预设或输入"
+            placeholder="可选，可多选预设或输入"
           />
         </label>
         {error ? <p className="day-panel__draft-error">{error}</p> : null}

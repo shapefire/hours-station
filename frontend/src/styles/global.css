@@ -1489,18 +1489,37 @@ textarea {
 
 .note-field__option {
   width: 100%;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   text-align: left;
   border: none;
   border-radius: 0.3rem;
   background: transparent;
   color: var(--ink);
-  padding: 0.4rem 0.55rem;
+  padding: 0.4rem 0.45rem;
   cursor: pointer;
   font: inherit;
+}
+
+.note-field__option-mark {
+  width: 1.05rem;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--accent);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.note-field__option-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.note-field__option--checked {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .note-field__option:hover,
