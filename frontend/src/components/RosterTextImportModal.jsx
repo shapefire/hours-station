@@ -129,24 +129,34 @@ function errorLabel(code) {
 
 export default function RosterTextImportModal({ open, year, onClose, onSuccess }) {
   const titleId = useId()
-  const closeRef = useRef(null)
+  const pasteRef = useRef(null)
   const onCloseRef = useRef(onClose)
   const phaseRef = useRef('edit_text')
+  const openRef = useRef(open)
+  const parseRequestIdRef = useRef(0)
+  const parsingRef = useRef(false)
   const [phase, setPhase] = useState('edit_text')
   const [text, setText] = useState('')
   const [days, setDays] = useState([])
   const [unparsedLines, setUnparsedLines] = useState([])
   const [error, setError] = useState(null)
+  const [parseBusy, setParseBusy] = useState(false)
 
   onCloseRef.current = onClose
   phaseRef.current = phase
+  openRef.current = open
 
   const busy = phase === 'submitting'
-  const canParse = Boolean(text.trim()) && Number.isInteger(year) && !busy
+  const canParse = Boolean(text.trim()) && Number.isInteger(year) && !busy && !parseBusy
   const canCommit = phase === 'preview' && days.length > 0 && !hasBlockingErrors(days)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      parseRequestIdRef.current += 1
+      parsingRef.current = false
+      setParseBusy(false)
+      return
+    }
     setPhase('edit_text')
     setText('')
     setDays([])
@@ -156,7 +166,6 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
 
   useEffect(() => {
     if (!open) return undefined
-    closeRef.current?.focus()
 
     function onKeyDown(event) {
       if (event.key !== 'Escape') return
@@ -174,6 +183,11 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open || phase !== 'edit_text') return
+    pasteRef.current?.focus()
+  }, [open, phase])
+
   if (!open) return null
 
   function handleBackdropClick() {
@@ -182,18 +196,28 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
   }
 
   async function handleParse() {
-    if (!canParse) return
+    if (!canParse || parsingRef.current) return
+    parsingRef.current = true
+    const requestId = ++parseRequestIdRef.current
     setError(null)
+    setParseBusy(true)
     try {
       const result = await api.post('/api/entries/import/preview', {
         text,
         year,
       })
+      if (requestId !== parseRequestIdRef.current || !openRef.current) return
       setDays(normalizePreviewDays(result?.days))
       setUnparsedLines(Array.isArray(result?.unparsed_lines) ? result.unparsed_lines : [])
       setPhase('preview')
     } catch (err) {
+      if (requestId !== parseRequestIdRef.current || !openRef.current) return
       setError(err?.message || '解析失败')
+    } finally {
+      if (requestId === parseRequestIdRef.current) {
+        parsingRef.current = false
+        setParseBusy(false)
+      }
     }
   }
 
@@ -258,7 +282,6 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
           </div>
           <div className="modal__header-actions">
             <button
-              ref={closeRef}
               type="button"
               className="btn btn--ghost btn--icon"
               onClick={onClose}
@@ -275,8 +298,10 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
             <label className="roster-import-modal__paste">
               <span>排班文本</span>
               <textarea
+                ref={pasteRef}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
+                disabled={parseBusy}
                 placeholder={'8月1 周六\n8-16梓野（早值）7.5\n休息：苑菱'}
                 aria-label="排班文本"
               />
@@ -474,7 +499,7 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                 onClick={handleParse}
                 disabled={!canParse}
               >
-                解析预览
+                {parseBusy ? '解析中…' : '解析预览'}
               </button>
             </>
           ) : (
