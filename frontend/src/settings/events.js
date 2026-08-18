@@ -2,6 +2,7 @@
 
 const listeners = new Set()
 const hoursRuleListeners = new Set()
+const rosterListeners = new Set()
 
 export function subscribeNotePresets(listener) {
   listeners.add(listener)
@@ -25,6 +26,21 @@ export function subscribeHoursRule(listener) {
 
 export function notifyHoursRuleChanged() {
   hoursRuleListeners.forEach((listener) => {
+    try {
+      listener()
+    } catch {
+      /* ignore */
+    }
+  })
+}
+
+export function subscribeRoster(listener) {
+  rosterListeners.add(listener)
+  return () => rosterListeners.delete(listener)
+}
+
+export function notifyRosterChanged() {
+  rosterListeners.forEach((listener) => {
     try {
       listener()
     } catch {

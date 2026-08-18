@@ -69,6 +69,22 @@ class EntryOut(BaseModel):
         return value.strftime("%H:%M")
 
 
+class EmployeeCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
+
+class EmployeeImportIn(BaseModel):
+    text: str
+
+
+class EmployeeImportOut(BaseModel):
+    created: int
+    reactivated: int
+    skipped_existing: int
+    skipped_invalid: int
+    names: list[str]
+
+
 class EmployeeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

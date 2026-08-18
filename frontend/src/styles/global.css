@@ -1596,14 +1596,29 @@ textarea {
 
 .settings-modal__content {
   min-width: 0;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   padding: 1.35rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-modal__section {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.settings-modal__section--roster {
+  overflow: hidden;
+}
+
+.settings-modal__section--roster .settings-modal__hint,
+.settings-modal__section--roster .settings-modal__status,
+.settings-modal__section--roster .settings-modal__error {
+  flex-shrink: 0;
 }
 
 .settings-modal__section-title {
@@ -1612,6 +1627,26 @@ textarea {
   font-size: 1.18rem;
   font-weight: 600;
   color: var(--ink);
+}
+
+.settings-modal__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  flex-shrink: 0;
+}
+
+.settings-modal__section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.settings-modal__section-head .settings-modal__section-title {
+  margin: 0;
 }
 
 .settings-modal__status {
@@ -1646,6 +1681,40 @@ textarea {
   background: color-mix(in srgb, var(--bg0) 88%, var(--accent-soft));
 }
 
+.settings-modal__select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.settings-modal__select-all input,
+.settings-modal__item-check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.settings-modal__list--roster {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 0;
+  padding-right: 0.15rem;
+}
+
+.settings-modal__item-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
 .settings-modal__item-text {
   flex: 1;
   min-width: 0;
@@ -1673,6 +1742,53 @@ textarea {
   color: var(--ink);
   font: inherit;
   font-size: 0.98rem;
+}
+
+.roster-editor-backdrop {
+  z-index: 90;
+}
+
+.roster-editor-modal.modal {
+  width: min(28rem, calc(100vw - 2rem));
+  height: auto;
+  max-height: min(80vh, 32rem);
+}
+
+.roster-editor-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem 1rem;
+  min-height: 0;
+}
+
+.roster-editor-modal__body .settings-modal__hint {
+  margin: 0;
+}
+
+.roster-editor-modal__body .settings-modal__error {
+  margin: 0;
+}
+
+.roster-editor-modal__body textarea {
+  width: 100%;
+  min-height: 8.5rem;
+  resize: vertical;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--bg0);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.roster-editor-modal__preview {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--accent);
+  line-height: 1.45;
 }
 
 .settings-modal__hint {

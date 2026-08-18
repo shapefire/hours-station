@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import Metric from './Metric.jsx'
 import RosterStatusBadge from './RosterStatusBadge.jsx'
+import { notifyRosterChanged, subscribeRoster } from '../settings/events.js'
 
 /**
  * Combobox: select from roster and/or free-type a new name.
@@ -59,6 +60,10 @@ export default function EmployeeNameField({
     }
   }, [loadRoster])
 
+  useEffect(() => subscribeRoster(() => {
+    loadRoster()
+  }), [loadRoster])
+
   useEffect(() => {
     function onDocPointerDown(event) {
       if (!rootRef.current?.contains(event.target)) {
@@ -91,7 +96,7 @@ export default function EmployeeNameField({
     event.preventDefault()
     event.stopPropagation()
     const ok = window.confirm(
-      `将「${emp.name}」移出花名册？\n下拉列表中不再显示；已登记的历史工时会保留。`,
+      `将「${emp.name}」从花名册删除？\n下拉列表中不再显示；已登记的历史工时会保留。`,
     )
     if (!ok) return
 
@@ -102,9 +107,10 @@ export default function EmployeeNameField({
         onChange?.('')
       }
       setActiveIndex(-1)
+      notifyRosterChanged()
       await loadRoster()
     } catch (err) {
-      window.alert(err.message || '移出花名册失败')
+      window.alert(err.message || '删除失败')
     } finally {
       setRemovingId(null)
     }
@@ -296,8 +302,8 @@ export default function EmployeeNameField({
                     <button
                       type="button"
                       className="name-field__remove"
-                      title="移出花名册"
-                      aria-label={`将 ${emp.name} 移出花名册`}
+                      title="从花名册删除"
+                      aria-label={`将 ${emp.name} 从花名册删除`}
                       disabled={disabled || removingId === emp.id}
                       onClick={(e) => removeFromRoster(e, emp)}
                     >

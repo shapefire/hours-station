@@ -1,3 +1,4 @@
+import re
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Employee, WorkEntry
 from app.services.hours import effective_hours
+
+_ROSTER_SPLIT = re.compile(r"[\s、,，；;]+")
 
 
 def get_or_create_employee(db: Session, name: str) -> Employee:
@@ -32,6 +35,67 @@ def get_or_create_employee(db: Session, name: str) -> Employee:
             emp.is_active = True
             db.flush()
     return emp
+
+
+def parse_roster_text(text: str) -> list[str]:
+    if not text:
+        return []
+    names: list[str] = []
+    seen: set[str] = set()
+    for part in _ROSTER_SPLIT.split(text):
+        name = part.strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    return names
+
+
+def ensure_active_employee(db: Session, name: str) -> tuple[Employee, str]:
+    cleaned = name.strip()
+    if not cleaned:
+        raise ValueError("姓名不能为空")
+    if len(cleaned) > 64:
+        raise ValueError("姓名最长 64 字")
+    existing = db.scalars(select(Employee).where(Employee.name == cleaned)).one_or_none()
+    if existing is not None:
+        if existing.is_active:
+            return existing, "existing"
+        existing.is_active = True
+        db.flush()
+        return existing, "reactivated"
+    emp = get_or_create_employee(db, cleaned)
+    return emp, "created"
+
+
+def import_employees(db: Session, text: str) -> dict:
+    names = parse_roster_text(text)
+    if not names:
+        raise ValueError("没有可导入的姓名")
+    created = 0
+    reactivated = 0
+    skipped_existing = 0
+    skipped_invalid = 0
+    kept: list[str] = []
+    for name in names:
+        if len(name) > 64:
+            skipped_invalid += 1
+            continue
+        emp, outcome = ensure_active_employee(db, name)
+        if outcome == "created":
+            created += 1
+        elif outcome == "reactivated":
+            reactivated += 1
+        else:
+            skipped_existing += 1
+        kept.append(emp.name)
+    return {
+        "created": created,
+        "reactivated": reactivated,
+        "skipped_existing": skipped_existing,
+        "skipped_invalid": skipped_invalid,
+        "names": kept,
+    }
 
 
 def _month_hours_by_employee(db: Session, year: int, month: int) -> dict[UUID, Decimal]:

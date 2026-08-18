@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import Metric from './Metric.jsx'
 import RosterStatusBadge from './RosterStatusBadge.jsx'
+import { subscribeRoster } from '../settings/events.js'
 
 export default function StatusMultiPick({
   open,
@@ -69,6 +70,28 @@ export default function StatusMultiPick({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open/initialKey
   }, [open, initialKey, onClose, monthYear, month, showMonthStats])
+
+  useEffect(() => {
+    if (!open) return undefined
+    return subscribeRoster(() => {
+      const params = new URLSearchParams()
+      if (monthYear != null && month != null) {
+        params.set('year', String(monthYear))
+        params.set('month', String(month))
+      }
+      const qs = params.toString()
+      api
+        .get(`/api/employees${qs ? `?${qs}` : ''}`)
+        .then((rows) => {
+          setRoster(Array.isArray(rows) ? rows : [])
+          setError(null)
+        })
+        .catch(() => {
+          setRoster([])
+          setError('花名册加载失败')
+        })
+    })
+  }, [open, monthYear, month])
 
   if (!open) return null
 

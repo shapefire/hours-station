@@ -4,10 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import EmployeeOut
+from app.schemas import EmployeeCreate, EmployeeImportIn, EmployeeImportOut, EmployeeOut
 from app.services import employees as employees_service
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
+
+
+def _exc_detail(exc: Exception) -> str:
+    if exc.args:
+        return str(exc.args[0])
+    return str(exc)
 
 
 @router.get("", response_model=list[EmployeeOut])
@@ -24,6 +30,31 @@ def list_employees(
         )
     rows = employees_service.list_employees(db, q=q, year=year, month=month)
     return [EmployeeOut.model_validate(row) for row in rows]
+
+
+@router.post("", response_model=EmployeeOut)
+def create_employee(
+    payload: EmployeeCreate,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    try:
+        emp, outcome = employees_service.ensure_active_employee(db, payload.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    response.status_code = (
+        status.HTTP_200_OK if outcome == "existing" else status.HTTP_201_CREATED
+    )
+    return EmployeeOut.model_validate(emp)
+
+
+@router.post("/import", response_model=EmployeeImportOut)
+def import_employees(payload: EmployeeImportIn, db: Session = Depends(get_db)):
+    try:
+        result = employees_service.import_employees(db, payload.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return EmployeeImportOut.model_validate(result)
 
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
