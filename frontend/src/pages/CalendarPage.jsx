@@ -215,6 +215,8 @@ export default function CalendarPage() {
           name: payload.name,
           start_time: payload.start_time,
           end_time: payload.end_time,
+          ot_start_time: payload.ot_start_time ?? null,
+          ot_end_time: payload.ot_end_time ?? null,
           note: payload.note,
           status: 'on_duty',
           is_external: !!payload.is_external,
@@ -224,6 +226,8 @@ export default function CalendarPage() {
         await api.patch(`/api/entries/${editingEntry.id}`, {
           start_time: payload.start_time,
           end_time: payload.end_time,
+          ot_start_time: payload.ot_start_time ?? null,
+          ot_end_time: payload.ot_end_time ?? null,
           note: payload.note,
           is_external: !!payload.is_external,
           is_trial: !!payload.is_trial,
@@ -232,6 +236,8 @@ export default function CalendarPage() {
         await api.patch(`/api/entries/${editingEntry.id}`, {
           start_time: payload.start_time,
           end_time: payload.end_time,
+          ot_start_time: payload.ot_start_time ?? null,
+          ot_end_time: payload.ot_end_time ?? null,
           note: payload.note,
           status: 'support',
         })
@@ -280,6 +286,8 @@ export default function CalendarPage() {
       name: payload.name,
       start_time: payload.start_time,
       end_time: payload.end_time,
+      ot_start_time: payload.ot_start_time ?? null,
+      ot_end_time: payload.ot_end_time ?? null,
       note: payload.note,
       status: 'support',
     })
@@ -292,6 +300,14 @@ export default function CalendarPage() {
     setFormMode('edit-support')
     setEditingEntry(entry)
     setFormError(null)
+  }
+
+  async function handleSaveOvertime(entry, { ot_start_time, ot_end_time }) {
+    await api.patch(`/api/entries/${entry.id}`, {
+      ot_start_time: ot_start_time ?? null,
+      ot_end_time: ot_end_time ?? null,
+    })
+    await Promise.all([refreshCalendar(), refreshEntries()])
   }
 
   async function handleRemoveEntry(entry) {
@@ -412,6 +428,8 @@ export default function CalendarPage() {
         name: payload.name,
         start_time: payload.start_time,
         end_time: payload.end_time,
+        ot_start_time: payload.ot_start_time ?? null,
+        ot_end_time: payload.ot_end_time ?? null,
         note: payload.note,
         status: 'on_duty',
         is_external: !!payload.is_external,
@@ -494,6 +512,7 @@ export default function CalendarPage() {
           onRemoveEntry={handleRemoveEntry}
           onAddSupport={handleAddSupport}
           onEditSupport={handleEditSupport}
+          onSaveOvertime={handleSaveOvertime}
         />
       </div>
     </div>

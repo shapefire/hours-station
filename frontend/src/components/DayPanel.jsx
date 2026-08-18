@@ -37,6 +37,38 @@ function toTimeInputValue(value) {
   return String(value).slice(0, 5)
 }
 
+function normalizeOtTimes(start, end) {
+  const ot_start_time = toTimeInputValue(start) || null
+  const ot_end_time = toTimeInputValue(end) || null
+  return { ot_start_time, ot_end_time }
+}
+
+function isOtPairIncomplete(start, end) {
+  return Boolean(toTimeInputValue(start)) !== Boolean(toTimeInputValue(end))
+}
+
+function formatOtLabel(entry) {
+  const start = toTimeInputValue(entry?.ot_start_time)
+  const end = toTimeInputValue(entry?.ot_end_time)
+  if (!start || !end) return null
+  return `加班 ${start}–${end}`
+}
+
+function EntryTimeRange({ entry, showMain = true }) {
+  const otLabel = formatOtLabel(entry)
+  const main =
+    showMain && entry?.start_time && entry?.end_time
+      ? `${entry.start_time}–${entry.end_time}`
+      : null
+  if (!main && !otLabel) return null
+  return (
+    <span className="day-panel__time">
+      {main ? <span>{main}</span> : null}
+      {otLabel ? <span className="day-panel__ot">{otLabel}</span> : null}
+    </span>
+  )
+}
+
 function buildOccupiedMap(entries) {
   const map = {}
   for (const entry of entries) {
@@ -60,24 +92,40 @@ function DraftCopyRow({
   const [name, setName] = useState('')
   const [startTime, setStartTime] = useState('07:30')
   const [endTime, setEndTime] = useState('16:00')
+  const [otStartTime, setOtStartTime] = useState('')
+  const [otEndTime, setOtEndTime] = useState('')
   const [note, setNote] = useState('')
 
   useEffect(() => {
     setName('')
     setStartTime(toTimeInputValue(sourceEntry?.start_time) || '07:30')
     setEndTime(toTimeInputValue(sourceEntry?.end_time) || '16:00')
+    setOtStartTime(toTimeInputValue(sourceEntry?.ot_start_time))
+    setOtEndTime(toTimeInputValue(sourceEntry?.ot_end_time))
     setNote(sourceEntry?.note || '')
-  }, [sourceEntry?.id, sourceEntry?.start_time, sourceEntry?.end_time, sourceEntry?.note])
+  }, [
+    sourceEntry?.id,
+    sourceEntry?.start_time,
+    sourceEntry?.end_time,
+    sourceEntry?.ot_start_time,
+    sourceEntry?.ot_end_time,
+    sourceEntry?.note,
+  ])
+
+  const otIncomplete = isOtPairIncomplete(otStartTime, otEndTime)
+  const otReady = Boolean(otStartTime) && Boolean(otEndTime)
 
   function handleSubmit(event) {
     event.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
     if (occupiedMap[trimmed]) return
+    if (otIncomplete) return
     onSubmit?.({
       name: trimmed,
       start_time: startTime,
       end_time: endTime,
+      ...normalizeOtTimes(otStartTime, otEndTime),
       note: note.trim() ? note.trim() : null,
       status: 'on_duty',
       is_external: !!sourceEntry?.is_external,
@@ -126,6 +174,35 @@ function DraftCopyRow({
           </div>
         </div>
         <HoursBreakdown startTime={startTime} endTime={endTime} />
+        <div className="day-panel__draft-times">
+          <div className="day-panel__draft-field">
+            <span>加班开始</span>
+            <TimeField
+              value={otStartTime}
+              onChange={setOtStartTime}
+              disabled={busy}
+              aria-label="加班开始时间"
+            />
+          </div>
+          <div className="day-panel__draft-field">
+            <span>加班结束</span>
+            <TimeField
+              value={otEndTime}
+              onChange={setOtEndTime}
+              disabled={busy}
+              aria-label="加班结束时间"
+            />
+          </div>
+        </div>
+        {otReady ? (
+          <div className="entry-form__ot-hours">
+            <span className="entry-form__ot-hours-label">加班</span>
+            <HoursBreakdown startTime={otStartTime} endTime={otEndTime} />
+          </div>
+        ) : null}
+        {otIncomplete ? (
+          <p className="day-panel__draft-error">加班开始与结束须同时填写</p>
+        ) : null}
         <label className="day-panel__draft-field">
           <span>备注</span>
           <NoteField
@@ -146,7 +223,7 @@ function DraftCopyRow({
           >
             取消
           </button>
-          <button type="submit" className="btn btn--primary btn--sm" disabled={busy}>
+          <button type="submit" className="btn btn--primary btn--sm" disabled={busy || otIncomplete}>
             {busy ? '复制中…' : '完成'}
           </button>
         </div>
@@ -155,7 +232,7 @@ function DraftCopyRow({
   )
 }
 
-function StatusChipSection({ title, entries, actionsLocked, onAdd, onRemove }) {
+function StatusChipSection({ title, entries, actionsLocked, onAdd, onRemove, onSaveOvertime }) {
   return (
     <section className="day-panel__section">
       <div className="day-panel__section-head">
@@ -175,24 +252,134 @@ function StatusChipSection({ title, entries, actionsLocked, onAdd, onRemove }) {
       {entries.length === 0 ? (
         <p className="day-panel__section-empty">暂无</p>
       ) : (
-        <ul className="day-panel__chips">
+        <ul className="day-panel__status-list">
           {entries.map((entry) => (
-            <li key={entry.id} className="chip">
-              <span className="chip__label">{entry.employee_name}</span>
-              <button
-                type="button"
-                className="chip__remove"
-                aria-label={`移除 ${entry.employee_name}`}
-                disabled={actionsLocked}
-                onClick={() => onRemove(entry)}
-              >
-                ×
-              </button>
-            </li>
+            <RestLeaveRow
+              key={entry.id}
+              entry={entry}
+              actionsLocked={actionsLocked}
+              onRemove={onRemove}
+              onSaveOvertime={onSaveOvertime}
+            />
           ))}
         </ul>
       )}
     </section>
+  )
+}
+
+function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
+  const [open, setOpen] = useState(false)
+  const [otStart, setOtStart] = useState(() => toTimeInputValue(entry.ot_start_time))
+  const [otEnd, setOtEnd] = useState(() => toTimeInputValue(entry.ot_end_time))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    setOtStart(toTimeInputValue(entry.ot_start_time))
+    setOtEnd(toTimeInputValue(entry.ot_end_time))
+    setError(null)
+  }, [entry.id, entry.ot_start_time, entry.ot_end_time])
+
+  const otIncomplete = isOtPairIncomplete(otStart, otEnd)
+  const hasHours = Number(entry.effective_hours) > 0
+
+  async function handleSave() {
+    if (otIncomplete) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onSaveOvertime?.(entry, normalizeOtTimes(otStart, otEnd))
+      setOpen(false)
+    } catch (err) {
+      setError(err?.message || '保存加班失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <li className="day-panel__status-item">
+      <div className="day-panel__status-row">
+        <span className="chip">
+          <span className="chip__label">{entry.employee_name}</span>
+          <button
+            type="button"
+            className="chip__remove"
+            aria-label={`移除 ${entry.employee_name}`}
+            disabled={actionsLocked || busy}
+            onClick={() => onRemove(entry)}
+          >
+            ×
+          </button>
+        </span>
+        <EntryTimeRange entry={entry} showMain={false} />
+        {hasHours ? (
+          <span className="day-panel__hours">
+            <Metric value={entry.effective_hours} unit="h" chip />
+          </span>
+        ) : null}
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          disabled={actionsLocked || busy}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          {open ? '收起' : '加班'}
+        </button>
+      </div>
+      {open ? (
+        <div className="day-panel__ot-editor">
+          <div className="entry-form__row entry-form__row--times">
+            <div className="entry-form__field">
+              <span>加班开始</span>
+              <TimeField
+                value={otStart}
+                onChange={setOtStart}
+                disabled={busy}
+                aria-label="加班开始时间"
+              />
+            </div>
+            <div className="entry-form__field">
+              <span>加班结束</span>
+              <TimeField
+                value={otEnd}
+                onChange={setOtEnd}
+                disabled={busy}
+                aria-label="加班结束时间"
+              />
+            </div>
+          </div>
+          {otIncomplete ? (
+            <p className="entry-form__error">加班开始与结束须同时填写</p>
+          ) : null}
+          {error ? <p className="entry-form__error">{error}</p> : null}
+          <div className="entry-form__actions">
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => {
+                setOpen(false)
+                setOtStart(toTimeInputValue(entry.ot_start_time))
+                setOtEnd(toTimeInputValue(entry.ot_end_time))
+                setError(null)
+              }}
+              disabled={busy}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={handleSave}
+              disabled={busy || otIncomplete}
+            >
+              {busy ? '保存中…' : '保存'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </li>
   )
 }
 
@@ -225,6 +412,7 @@ export default function DayPanel({
   onRemoveEntry,
   onAddSupport,
   onEditSupport,
+  onSaveOvertime,
 }) {
   const bodyRef = useRef(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -238,7 +426,7 @@ export default function DayPanel({
   const leave = entries.filter((e) => entryStatus(e) === 'leave')
   const support = entries.filter((e) => entryStatus(e) === 'support')
 
-  const totalHours = sumHours(duty)
+  const totalHours = sumHours(entries.filter((e) => entryStatus(e) !== 'support'))
   const dutyCount = duty.length
   const allCount = entries.length
   const actionsLocked = Boolean(
@@ -439,9 +627,7 @@ export default function DayPanel({
                                 <span className="badge badge--trial">试工</span>
                               ) : null}
                             </span>
-                            <span className="day-panel__time">
-                              {entry.start_time}–{entry.end_time}
-                            </span>
+                            <EntryTimeRange entry={entry} />
                             <span className="day-panel__hours">
                               <Metric value={entry.effective_hours} unit="h" chip />
                             </span>
@@ -492,6 +678,7 @@ export default function DayPanel({
               actionsLocked={actionsLocked}
               onAdd={() => openMultiPick('rest')}
               onRemove={(entry) => onRemoveEntry?.(entry)}
+              onSaveOvertime={onSaveOvertime}
             />
 
             <StatusChipSection
@@ -500,6 +687,7 @@ export default function DayPanel({
               actionsLocked={actionsLocked}
               onAdd={() => openMultiPick('leave')}
               onRemove={(entry) => onRemoveEntry?.(entry)}
+              onSaveOvertime={onSaveOvertime}
             />
 
             <section className="day-panel__section">
@@ -560,9 +748,7 @@ export default function DayPanel({
                               {entry.employee_name}
                               <span className="badge badge--support">支援</span>
                             </span>
-                            <span className="day-panel__time">
-                              {entry.start_time}–{entry.end_time}
-                            </span>
+                            <EntryTimeRange entry={entry} />
                             <span className="day-panel__hours">
                               <Metric value={entry.effective_hours} unit="h" chip />
                             </span>

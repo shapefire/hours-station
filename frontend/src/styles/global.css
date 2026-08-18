@@ -995,6 +995,48 @@ textarea {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.15rem 0.5rem;
+}
+
+.day-panel__ot {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.day-panel__status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.day-panel__status-item {
+  padding: 0.35rem 0;
+}
+
+.day-panel__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+}
+
+.day-panel__ot-editor {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.45rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--bg0) 75%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .day-panel__hours {
@@ -1847,6 +1889,19 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.65rem;
+}
+
+.entry-form__ot-hours {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+}
+
+.entry-form__ot-hours-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .entry-form__field {

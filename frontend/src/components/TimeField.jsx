@@ -8,11 +8,6 @@ function toTimeValue(value) {
   return /^\d{2}:\d{2}$/.test(raw) ? raw : ''
 }
 
-function parseTime(value) {
-  const raw = toTimeValue(value) || '07:30'
-  return { hour: raw.slice(0, 2), minute: raw.slice(3, 5) }
-}
-
 /**
  * Native hour + minute selects.
  * Custom overlays are unreliable on real iOS/Android touch (DevTools emulation often still uses mouse/click).
@@ -30,16 +25,22 @@ export default function TimeField({
   const hourId = idProp || `${autoId}-hour`
   const minuteId = `${autoId}-minute`
 
-  const timeValue = toTimeValue(value) || '07:30'
-  const { hour, minute } = parseTime(timeValue)
+  const parsed = toTimeValue(value)
+  const timeValue = parsed || (required ? '07:30' : '')
+  const hour = timeValue ? timeValue.slice(0, 2) : ''
+  const minute = timeValue ? timeValue.slice(3, 5) : ''
 
   const minuteChoices = useMemo(() => {
-    if (BASE_MINUTES.includes(minute)) return BASE_MINUTES
+    if (!minute || BASE_MINUTES.includes(minute)) return BASE_MINUTES
     return [...BASE_MINUTES, minute].sort()
   }, [minute])
 
   function emit(nextHour, nextMinute) {
-    onChange?.(`${nextHour}:${nextMinute}`)
+    if (!nextHour) {
+      onChange?.('')
+      return
+    }
+    onChange?.(`${nextHour}:${nextMinute || '00'}`)
   }
 
   return (
@@ -52,8 +53,9 @@ export default function TimeField({
         disabled={disabled}
         required={required}
         aria-label={`${ariaLabel} · 时`}
-        onChange={(event) => emit(event.target.value, minute)}
+        onChange={(event) => emit(event.target.value, minute || '00')}
       >
+        {!required ? <option value="">—</option> : null}
         {HOURS.map((h) => (
           <option key={h} value={h}>
             {h}
@@ -67,11 +69,12 @@ export default function TimeField({
         id={minuteId}
         className="time-field__select time-field__select--minute"
         value={minute}
-        disabled={disabled}
+        disabled={disabled || (!required && !hour)}
         required={required}
         aria-label={`${ariaLabel} · 分`}
         onChange={(event) => emit(hour, event.target.value)}
       >
+        {!required && !hour ? <option value="">—</option> : null}
         {minuteChoices.map((m) => (
           <option key={m} value={m}>
             {m}

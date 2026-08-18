@@ -8,17 +8,36 @@ const EMPTY = {
   name: '',
   start_time: '07:30',
   end_time: '16:00',
+  ot_start_time: '',
+  ot_end_time: '',
   note: '',
   is_external: false,
   is_trial: false,
+}
+
+function toTimeInputValue(value) {
+  if (!value) return ''
+  return String(value).slice(0, 5)
+}
+
+function normalizeOtTimes(start, end) {
+  const ot_start_time = toTimeInputValue(start) || null
+  const ot_end_time = toTimeInputValue(end) || null
+  return { ot_start_time, ot_end_time }
+}
+
+function isOtPairIncomplete(start, end) {
+  return Boolean(toTimeInputValue(start)) !== Boolean(toTimeInputValue(end))
 }
 
 function entryToForm(entry) {
   if (!entry) return { ...EMPTY }
   return {
     name: entry.employee_name || '',
-    start_time: entry.start_time || '07:30',
-    end_time: entry.end_time || '16:00',
+    start_time: toTimeInputValue(entry.start_time) || '07:30',
+    end_time: toTimeInputValue(entry.end_time) || '16:00',
+    ot_start_time: toTimeInputValue(entry.ot_start_time),
+    ot_end_time: toTimeInputValue(entry.ot_end_time),
     note: entry.note || '',
     is_external: !!entry.is_external,
     is_trial: !!entry.is_trial,
@@ -47,15 +66,20 @@ export default function EntryForm({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  const otIncomplete = isOtPairIncomplete(form.ot_start_time, form.ot_end_time)
+  const otReady = Boolean(form.ot_start_time) && Boolean(form.ot_end_time)
+
   function handleSubmit(event) {
     event.preventDefault()
     const trimmed = form.name.trim()
     if (!isEdit && !trimmed) return
     if (!isEdit && occupiedMap[trimmed]) return
+    if (otIncomplete) return
     const payload = {
       name: trimmed,
       start_time: form.start_time,
       end_time: form.end_time,
+      ...normalizeOtTimes(form.ot_start_time, form.ot_end_time),
       note: form.note.trim() ? form.note.trim() : null,
       status: 'on_duty',
       is_external: !!form.is_external,
@@ -113,6 +137,40 @@ export default function EntryForm({
 
       <HoursBreakdown startTime={form.start_time} endTime={form.end_time} />
 
+      <div className="entry-form__row entry-form__row--times">
+        <div className="entry-form__field">
+          <span>加班开始</span>
+          <TimeField
+            name="ot_start_time"
+            value={form.ot_start_time}
+            onChange={(v) => updateField('ot_start_time', v)}
+            disabled={busy}
+            aria-label="加班开始时间"
+          />
+        </div>
+        <div className="entry-form__field">
+          <span>加班结束</span>
+          <TimeField
+            name="ot_end_time"
+            value={form.ot_end_time}
+            onChange={(v) => updateField('ot_end_time', v)}
+            disabled={busy}
+            aria-label="加班结束时间"
+          />
+        </div>
+      </div>
+
+      {otReady ? (
+        <div className="entry-form__ot-hours">
+          <span className="entry-form__ot-hours-label">加班</span>
+          <HoursBreakdown startTime={form.ot_start_time} endTime={form.ot_end_time} />
+        </div>
+      ) : null}
+
+      {otIncomplete ? (
+        <p className="entry-form__error">加班开始与结束须同时填写</p>
+      ) : null}
+
       <label className="entry-form__field">
         <span>备注</span>
         <NoteField
@@ -150,7 +208,7 @@ export default function EntryForm({
         <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
           取消
         </button>
-        <button type="submit" className="btn btn--primary" disabled={busy}>
+        <button type="submit" className="btn btn--primary" disabled={busy || otIncomplete}>
           {busy ? '保存中…' : isEdit ? '保存修改' : '新增登记'}
         </button>
       </div>
