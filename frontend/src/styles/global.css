@@ -2161,6 +2161,12 @@ textarea {
   gap: 0.65rem;
 }
 
+.entry-form__ot-clear {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: -0.2rem;
+}
+
 .entry-form__ot-hours {
   display: flex;
   flex-wrap: wrap;

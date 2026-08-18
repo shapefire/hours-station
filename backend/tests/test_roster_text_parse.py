@@ -155,6 +155,49 @@ def test_md_date_line_vs_duty_line():
     assert result["unparsed_lines"] == []
 
 
+def test_spaced_duty_not_parsed_as_md_date():
+    """`9-16 继鹏` is a shift, not September 16."""
+    text = """8月12   周三
+8-16洁惠（早值、检查效期）7.5
+7.5-16 梓野（制备位）8
+7.5-16 洁怡（水果位）8
+9-16 继鹏（协助后厨）6.5
+7.5-13林航（香雪试工水果位）5.5
+11-17晓愉5
+12-17锶锴5
+13-19佳佳6
+14-20晓丹6
+14.5-23.5晓玲（接制备）8.5
+17-23.5小帅（晚值、检查效期）6.5
+17-23.5家进6.5
+"""
+    result = parse_roster_text(text, year=2026)
+    assert len(result["days"]) == 1
+    day = result["days"][0]
+    assert day["work_date"] == date(2026, 8, 12)
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert set(by_name) == {
+        "洁惠",
+        "梓野",
+        "洁怡",
+        "继鹏",
+        "林航",
+        "晓愉",
+        "锶锴",
+        "佳佳",
+        "晓丹",
+        "晓玲",
+        "小帅",
+        "家进",
+    }
+    assert by_name["继鹏"]["start_time"] == time(9, 0)
+    assert by_name["继鹏"]["end_time"] == time(16, 0)
+    assert by_name["继鹏"]["note"] == "协助后厨"
+    assert by_name["梓野"]["start_time"] == time(7, 30)
+    assert by_name["林航"]["is_trial"] is True
+    assert result["unparsed_lines"] == []
+
+
 AUG1_SAMPLE = """8月1 周六 完成5号前自检表+QSE自检表
 16-23.5嘉岚（卫生）6.5
 8-16梓野（早值、检查效期）7.5

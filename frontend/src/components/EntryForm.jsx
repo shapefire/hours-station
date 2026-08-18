@@ -160,6 +160,21 @@ export default function EntryForm({
         </div>
       </div>
 
+      {form.ot_start_time || form.ot_end_time ? (
+        <div className="entry-form__ot-clear">
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            disabled={busy}
+            onClick={() =>
+              setForm((prev) => ({ ...prev, ot_start_time: '', ot_end_time: '' }))
+            }
+          >
+            清空加班
+          </button>
+        </div>
+      ) : null}
+
       {otReady ? (
         <div className="entry-form__ot-hours">
           <span className="entry-form__ot-hours-label">加班</span>

@@ -10,9 +10,9 @@ TIME_TOKEN = r"(\d{1,2}(?:\.\d)?)"
 TIME_RANGE = rf"{TIME_TOKEN}-{TIME_TOKEN}"
 
 _DATE_RE = re.compile(rf"^\s*(\d{{1,2}})\s*月\s*(\d{{1,2}})")
-# M-D date: require whitespace/end/weekday after day — not CJK name glued (duty `8-16梓野`)
+# M-D date only when followed by end-of-line or weekday — not duty like `9-16 继鹏`
 _DATE_MD_RE = re.compile(
-    r"^\s*(\d{1,2})-(\d{1,2})(?=\s|$|(?:周[一二三四五六日天]|星期.))"
+    r"^\s*(\d{1,2})-(\d{1,2})(?=\s*$|\s+(?:周[一二三四五六日天]|星期.))"
 )
 _WEEKDAY_RE = re.compile(r"(?:周[一二三四五六日天]|星期.)")
 _TOTAL_RE = re.compile(r"^\s*总\s*[:：]")

@@ -196,6 +196,21 @@ function DraftCopyRow({
             />
           </div>
         </div>
+        {otStartTime || otEndTime ? (
+          <div className="entry-form__ot-clear">
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={busy}
+              onClick={() => {
+                setOtStartTime('')
+                setOtEndTime('')
+              }}
+            >
+              清空加班
+            </button>
+          </div>
+        ) : null}
         {otReady ? (
           <div className="entry-form__ot-hours">
             <span className="entry-form__ot-hours-label">加班</span>
@@ -284,7 +299,16 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
   }, [entry.id, entry.ot_start_time, entry.ot_end_time])
 
   const otIncomplete = isOtPairIncomplete(otStart, otEnd)
+  const hasOt = Boolean(
+    toTimeInputValue(entry.ot_start_time) && toTimeInputValue(entry.ot_end_time),
+  )
   const hasHours = Number(entry.effective_hours) > 0
+
+  function resetOtFromEntry() {
+    setOtStart(toTimeInputValue(entry.ot_start_time))
+    setOtEnd(toTimeInputValue(entry.ot_end_time))
+    setError(null)
+  }
 
   async function handleSave() {
     if (otIncomplete) return
@@ -295,6 +319,22 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
       setOpen(false)
     } catch (err) {
       setError(err?.message || '保存加班失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleClearOvertime() {
+    setBusy(true)
+    setError(null)
+    try {
+      await onSaveOvertime?.(entry, { ot_start_time: null, ot_end_time: null })
+      setOtStart('')
+      setOtEnd('')
+      setOpen(false)
+    } catch (err) {
+      setError(err?.message || '清空加班失败')
+      setOpen(true)
     } finally {
       setBusy(false)
     }
@@ -321,13 +361,29 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
             <Metric value={entry.effective_hours} unit="h" chip />
           </span>
         ) : null}
+        {hasOt ? (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm btn--danger"
+            disabled={actionsLocked || busy}
+            onClick={handleClearOvertime}
+            title="删除已登记的加班时段"
+          >
+            {busy ? '…' : '删加班'}
+          </button>
+        ) : null}
         <button
           type="button"
           className="btn btn--ghost btn--sm"
           disabled={actionsLocked || busy}
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => {
+            setOpen((prev) => {
+              if (prev) resetOtFromEntry()
+              return !prev
+            })
+          }}
         >
-          {open ? '收起' : '加班'}
+          {open ? '收起' : hasOt ? '改加班' : '加班'}
         </button>
       </div>
       {open ? (
@@ -352,6 +408,18 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
               />
             </div>
           </div>
+          {hasOt || otStart || otEnd ? (
+            <div className="entry-form__ot-clear">
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={busy}
+                onClick={handleClearOvertime}
+              >
+                清空加班
+              </button>
+            </div>
+          ) : null}
           {otIncomplete ? (
             <p className="entry-form__error">加班开始与结束须同时填写</p>
           ) : null}
@@ -362,9 +430,7 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
               className="btn btn--ghost btn--sm"
               onClick={() => {
                 setOpen(false)
-                setOtStart(toTimeInputValue(entry.ot_start_time))
-                setOtEnd(toTimeInputValue(entry.ot_end_time))
-                setError(null)
+                resetOtFromEntry()
               }}
               disabled={busy}
             >
@@ -374,7 +440,7 @@ function RestLeaveRow({ entry, actionsLocked, onRemove, onSaveOvertime }) {
               type="button"
               className="btn btn--primary btn--sm"
               onClick={handleSave}
-              disabled={busy || otIncomplete}
+              disabled={busy || otIncomplete || (!otStart && !otEnd && !hasOt)}
             >
               {busy ? '保存中…' : '保存'}
             </button>

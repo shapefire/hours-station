@@ -102,6 +102,27 @@ def test_patch_explicit_null_clears_ot(client):
     assert body["effective_hours"] == "7.5"
 
 
+def test_patch_clears_ot_on_rest(client):
+    created = client.post("/api/entries", json={
+        "work_date": "2026-08-04",
+        "name": "继鹏",
+        "status": "rest",
+        "ot_start_time": "22:00",
+        "ot_end_time": "23:30",
+    }).json()
+    assert created["effective_hours"] == "1.5"
+    r = client.patch(f"/api/entries/{created['id']}", json={
+        "ot_start_time": None,
+        "ot_end_time": None,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "rest"
+    assert body["ot_start_time"] is None
+    assert body["ot_end_time"] is None
+    assert body["effective_hours"] == "0.0"
+
+
 def test_copy_day_and_person_copy_ot(client):
     source = client.post("/api/entries", json={
         "work_date": "2026-08-04",
