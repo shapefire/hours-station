@@ -210,7 +210,7 @@ class RosterImportPreviewEntry(BaseModel):
 
 
 class RosterImportPreviewDay(BaseModel):
-    work_date: date
+    work_date: date | None = None
     day_note: str | None = None
     entries: list[RosterImportPreviewEntry]
     errors: list[str] = Field(default_factory=list)

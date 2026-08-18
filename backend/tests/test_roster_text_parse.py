@@ -107,6 +107,54 @@ def test_invalid_time_range_error():
     assert "invalid_time_range" in day["entries"][0]["errors"]
 
 
+def test_illegal_hour_token_does_not_raise():
+    text = "8月1 周六\n25-26嘉岚（卫生）"
+    result = parse_roster_text(text, year=2026)
+    assert result["days"]
+    day = result["days"][0]
+    # either unparsed or entry error — must not raise
+    if day["entries"]:
+        assert "invalid_time_range" in day["entries"][0]["errors"]
+    else:
+        assert any("25-26" in line for line in result["unparsed_lines"])
+
+
+def test_invalid_calendar_date_keeps_block_and_following_lines():
+    text = "13月40 周一 备注\n8-16梓野（早值）7.5\n休息：苑菱"
+    result = parse_roster_text(text, year=2026)
+    assert len(result["days"]) == 1
+    day = result["days"][0]
+    assert "invalid_date" in day["errors"]
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert "梓野" in by_name
+    assert by_name["梓野"]["status"] == "on_duty"
+    assert "苑菱" in by_name
+    assert by_name["苑菱"]["status"] == "rest"
+    assert "13月40" not in result["unparsed_lines"]
+
+
+def test_rest_splits_ascii_comma():
+    text = "8月1 周六\n休息：苑菱,梓野"
+    day = parse_roster_text(text, year=2026)["days"][0]
+    by_name = {e["name"]: e for e in day["entries"]}
+    assert set(by_name) == {"苑菱", "梓野"}
+    assert by_name["苑菱"]["status"] == "rest"
+    assert by_name["梓野"]["status"] == "rest"
+
+
+def test_md_date_line_vs_duty_line():
+    text = "8-1 周六 来货\n8-16梓野（早值）7.5"
+    result = parse_roster_text(text, year=2026)
+    assert len(result["days"]) == 1
+    day = result["days"][0]
+    assert day["work_date"] == date(2026, 8, 1)
+    assert day["day_note"] == "来货"
+    assert day["entries"][0]["name"] == "梓野"
+    assert day["entries"][0]["start_time"] == time(8, 0)
+    assert day["entries"][0]["end_time"] == time(16, 0)
+    assert result["unparsed_lines"] == []
+
+
 AUG1_SAMPLE = """8月1 周六 完成5号前自检表+QSE自检表
 16-23.5嘉岚（卫生）6.5
 8-16梓野（早值、检查效期）7.5

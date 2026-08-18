@@ -1,5 +1,4 @@
 from datetime import time
-from decimal import Decimal
 
 
 def test_create_on_duty_with_ot_sums_hours(client):
@@ -17,6 +16,21 @@ def test_create_on_duty_with_ot_sums_hours(client):
     assert r.json()["effective_hours"] == "9.0"
     assert r.json()["ot_start_time"] == "22:00"
     assert r.json()["ot_end_time"] == "23:30"
+
+
+def test_ot_two_segment_both_deduct_when_ge_six(client):
+    # 主 8h→7.5；加班 6h→5.5；两段各自满 6h 各扣 0.5
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-04",
+        "name": "苑菱",
+        "status": "on_duty",
+        "start_time": "08:00",
+        "end_time": "16:00",
+        "ot_start_time": "17:00",
+        "ot_end_time": "23:00",
+    })
+    assert r.status_code == 201
+    assert r.json()["effective_hours"] == "13.0"
 
 
 def test_rest_with_ot_only_counts_ot(client):

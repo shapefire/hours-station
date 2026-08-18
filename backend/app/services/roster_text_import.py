@@ -10,6 +10,10 @@ TIME_TOKEN = r"(\d{1,2}(?:\.\d)?)"
 TIME_RANGE = rf"{TIME_TOKEN}-{TIME_TOKEN}"
 
 _DATE_RE = re.compile(rf"^\s*(\d{{1,2}})\s*月\s*(\d{{1,2}})")
+# M-D date: require whitespace/end/weekday after day — not CJK name glued (duty `8-16梓野`)
+_DATE_MD_RE = re.compile(
+    r"^\s*(\d{1,2})-(\d{1,2})(?=\s|$|(?:周[一二三四五六日天]|星期.))"
+)
 _WEEKDAY_RE = re.compile(r"(?:周[一二三四五六日天]|星期.)")
 _TOTAL_RE = re.compile(r"^\s*总\s*[:：]")
 _REST_LEAVE_RE = re.compile(r"^(休息|请假)\s*[:：]\s*(.+)$")
@@ -19,7 +23,7 @@ _OT_RE = re.compile(rf"^([\u4e00-\u9fff]{{2,4}}){TIME_RANGE}\s*$")
 _SHIFT_CHANGE_RE = re.compile(rf"[（(]{TIME_RANGE}[）)]\s*$")
 _TRAILING_HOURS_RE = re.compile(rf"{TIME_TOKEN}\s*$")
 _NOTE_RE = re.compile(r"[（(](.+?)[）)]")
-_NAME_SPLIT_RE = re.compile(r"[\s、，]+")
+_NAME_SPLIT_RE = re.compile(r"[\s、,，]+")
 _PERSON_NAME_RE = re.compile(r"^[\u4e00-\u9fffA-Za-z]{2,4}$")
 _SUPPORT_BODY_RE = re.compile(rf"^([\u4e00-\u9fffA-Za-z]{{2,4}})\s*(?:{TIME_RANGE})?\s*$")
 
@@ -31,13 +35,29 @@ _STATUS_ON_DUTY = "on_duty"
 
 def parse_time_token(token: str) -> time:
     token = token.strip()
-    if "." in token:
-        hour_s, frac_s = token.split(".", 1)
-        minute = int(round(float(f"0.{frac_s}") * 60))
-        if minute == 60:
-            return time(int(hour_s) + 1, 0)
-        return time(int(hour_s), minute)
-    return time(int(token), 0)
+    try:
+        if "." in token:
+            hour_s, frac_s = token.split(".", 1)
+            hour = int(hour_s)
+            minute = int(round(float(f"0.{frac_s}") * 60))
+            if minute == 60:
+                hour += 1
+                minute = 0
+        else:
+            hour = int(token)
+            minute = 0
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise ValueError("invalid_time_token")
+        return time(hour, minute)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid_time_token") from exc
+
+
+def _try_parse_time_token(token: str) -> time | None:
+    try:
+        return parse_time_token(token)
+    except ValueError:
+        return None
 
 
 def _empty_draft(name: str) -> dict:
@@ -62,13 +82,20 @@ def _get_or_create(entries: dict[str, dict], name: str) -> dict:
     return draft
 
 
-def _parse_duty_payload(rest: str) -> tuple[str, str | None, time | None, time | None] | None:
+def _parse_duty_payload(
+    rest: str,
+) -> tuple[str, str | None, time | None, time | None, bool] | None:
+    """Returns (name, note, shift_start, shift_end, times_ok) or None if not a duty payload."""
     rest = rest.strip()
     shift_start = shift_end = None
+    times_ok = True
     shift_m = _SHIFT_CHANGE_RE.search(rest)
     if shift_m:
-        shift_start = parse_time_token(shift_m.group(1))
-        shift_end = parse_time_token(shift_m.group(2))
+        shift_start = _try_parse_time_token(shift_m.group(1))
+        shift_end = _try_parse_time_token(shift_m.group(2))
+        if shift_start is None or shift_end is None:
+            times_ok = False
+            shift_start = shift_end = None
         rest = rest[: shift_m.start()].rstrip()
     hours_m = _TRAILING_HOURS_RE.search(rest)
     if hours_m:
@@ -81,7 +108,7 @@ def _parse_duty_payload(rest: str) -> tuple[str, str | None, time | None, time |
     name = rest.strip()
     if not _PERSON_NAME_RE.match(name):
         return None
-    return name, note, shift_start, shift_end
+    return name, note, shift_start, shift_end, times_ok
 
 
 def _split_names(blob: str) -> list[str]:
@@ -90,20 +117,22 @@ def _split_names(blob: str) -> list[str]:
 
 
 def _validate_draft(entry: dict) -> None:
-    errors: list[str] = []
+    errors: list[str] = list(entry.get("errors") or [])
     start, end = entry["start_time"], entry["end_time"]
     ot_start, ot_end = entry["ot_start_time"], entry["ot_end_time"]
     status = entry["status"]
 
     main_invalid = start is not None and end is not None and end <= start
     ot_invalid = ot_start is not None and ot_end is not None and ot_end <= ot_start
-    if main_invalid or ot_invalid:
+    if (main_invalid or ot_invalid) and "invalid_time_range" not in errors:
         errors.append("invalid_time_range")
 
     if status == _STATUS_SUPPORT and (start is None or end is None):
-        errors.append("missing_support_times")
+        if "missing_support_times" not in errors:
+            errors.append("missing_support_times")
     elif status == _STATUS_ON_DUTY and (start is None or end is None):
-        errors.append("missing_duty_times")
+        if "missing_duty_times" not in errors:
+            errors.append("missing_duty_times")
 
     entry["errors"] = errors
 
@@ -130,24 +159,23 @@ def parse_roster_text(text: str, *, year: int) -> dict:
         if _TOTAL_RE.match(line):
             continue
 
-        date_m = _DATE_RE.match(line)
+        date_m = _DATE_RE.match(line) or _DATE_MD_RE.match(line)
         if date_m:
             _flush_day(days, current, entries)
             month, day_n = int(date_m.group(1)), int(date_m.group(2))
+            day_errors: list[str] = []
             try:
-                work_date = date(year, month, day_n)
+                work_date: date | None = date(year, month, day_n)
             except ValueError:
-                current = None
-                entries = None
-                unparsed_lines.append(line)
-                continue
+                work_date = None
+                day_errors.append("invalid_date")
             remainder = _WEEKDAY_RE.sub("", line[date_m.end() :])
             day_note = remainder.strip() or None
             current = {
                 "work_date": work_date,
                 "day_note": day_note,
                 "entries": [],
-                "errors": [],
+                "errors": day_errors,
             }
             entries = {}
             continue
@@ -180,8 +208,16 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             draft["note"] = location
             draft["is_trial"] = False
             if body_m.group(2) and body_m.group(3):
-                draft["start_time"] = parse_time_token(body_m.group(2))
-                draft["end_time"] = parse_time_token(body_m.group(3))
+                start = _try_parse_time_token(body_m.group(2))
+                end = _try_parse_time_token(body_m.group(3))
+                if start is None or end is None:
+                    draft["start_time"] = None
+                    draft["end_time"] = None
+                    if "invalid_time_range" not in draft["errors"]:
+                        draft["errors"].append("invalid_time_range")
+                else:
+                    draft["start_time"] = start
+                    draft["end_time"] = end
             else:
                 draft["start_time"] = None
                 draft["end_time"] = None
@@ -193,25 +229,40 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             if parsed is None:
                 unparsed_lines.append(line)
                 continue
-            name, note, shift_start, shift_end = parsed
-            start = shift_start if shift_start is not None else parse_time_token(duty_m.group(1))
-            end = shift_end if shift_end is not None else parse_time_token(duty_m.group(2))
+            name, note, shift_start, shift_end, shift_ok = parsed
+            if shift_start is not None and shift_end is not None:
+                start, end = shift_start, shift_end
+                times_ok = shift_ok
+            else:
+                start = _try_parse_time_token(duty_m.group(1))
+                end = _try_parse_time_token(duty_m.group(2))
+                times_ok = start is not None and end is not None and shift_ok
             draft = _get_or_create(entries, name)
             draft["status"] = _STATUS_ON_DUTY
-            draft["start_time"] = start
-            draft["end_time"] = end
+            draft["start_time"] = start if times_ok else None
+            draft["end_time"] = end if times_ok else None
             draft["note"] = note
             draft["is_trial"] = "试工" in (note or "")
+            if not times_ok and "invalid_time_range" not in draft["errors"]:
+                draft["errors"].append("invalid_time_range")
             continue
 
         ot_m = _OT_RE.match(line)
         if ot_m:
             name = ot_m.group(1)
+            ot_start = _try_parse_time_token(ot_m.group(2))
+            ot_end = _try_parse_time_token(ot_m.group(3))
             draft = _get_or_create(entries, name)
             if draft["status"] is None:
                 draft["status"] = _STATUS_ON_DUTY
-            draft["ot_start_time"] = parse_time_token(ot_m.group(2))
-            draft["ot_end_time"] = parse_time_token(ot_m.group(3))
+            if ot_start is None or ot_end is None:
+                draft["ot_start_time"] = None
+                draft["ot_end_time"] = None
+                if "invalid_time_range" not in draft["errors"]:
+                    draft["errors"].append("invalid_time_range")
+            else:
+                draft["ot_start_time"] = ot_start
+                draft["ot_end_time"] = ot_end
             continue
 
         unparsed_lines.append(line)
