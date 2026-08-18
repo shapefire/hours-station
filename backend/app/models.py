@@ -26,10 +26,24 @@ class WorkEntry(Base):
     is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    ot_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    ot_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     employee: Mapped[Employee] = relationship(back_populates="entries")
+
+
+class DayNote(Base):
+    __tablename__ = "day_notes"
+    __table_args__ = (UniqueConstraint("work_date", name="uq_day_notes_work_date"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    work_date: Mapped[date] = mapped_column(Date, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class NotePreset(Base):
