@@ -8,6 +8,7 @@ def effective_hours(
     start: time,
     end: time,
     tiers: Sequence[tuple[Decimal, Decimal]] | None = None,
+    skip_deduction: bool = False,
 ) -> Decimal:
     if end <= start:
         raise ValueError("结束时间必须晚于开始时间")
@@ -25,10 +26,11 @@ def effective_hours(
         resolved = list(DEFAULT_TIERS)
 
     deduct = Decimal("0")
-    for min_hours, deduct_hours in sorted(resolved, key=lambda t: t[0], reverse=True):
-        if raw >= min_hours:
-            deduct = deduct_hours if deduct_hours > 0 else Decimal("0")
-            break
+    if not skip_deduction:
+        for min_hours, deduct_hours in sorted(resolved, key=lambda t: t[0], reverse=True):
+            if raw >= min_hours:
+                deduct = deduct_hours if deduct_hours > 0 else Decimal("0")
+                break
 
     effective = raw - deduct
     return effective.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)

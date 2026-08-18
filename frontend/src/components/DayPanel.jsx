@@ -10,6 +10,7 @@ import NoteField from './NoteField.jsx'
 import StatusMultiPick from './StatusMultiPick.jsx'
 import SupportForm from './SupportForm.jsx'
 import DayNoteEditor from './DayNoteEditor.jsx'
+import { applySkipDeductionNote } from '../utils/skipDeductionNote.js'
 
 const STATUS_LABEL = {
   on_duty: '到岗',
@@ -115,6 +116,7 @@ function DraftCopyRow({
   const [otStartTime, setOtStartTime] = useState('')
   const [otEndTime, setOtEndTime] = useState('')
   const [note, setNote] = useState('')
+  const [skipDeduction, setSkipDeduction] = useState(false)
 
   useEffect(() => {
     setName('')
@@ -123,6 +125,7 @@ function DraftCopyRow({
     setOtStartTime(toTimeInputValue(sourceEntry?.ot_start_time))
     setOtEndTime(toTimeInputValue(sourceEntry?.ot_end_time))
     setNote(sourceEntry?.note || '')
+    setSkipDeduction(!!sourceEntry?.skip_deduction)
   }, [
     sourceEntry?.id,
     sourceEntry?.start_time,
@@ -130,6 +133,7 @@ function DraftCopyRow({
     sourceEntry?.ot_start_time,
     sourceEntry?.ot_end_time,
     sourceEntry?.note,
+    sourceEntry?.skip_deduction,
   ])
 
   const otIncomplete = isOtPairIncomplete(otStartTime, otEndTime)
@@ -146,10 +150,11 @@ function DraftCopyRow({
       start_time: startTime,
       end_time: endTime,
       ...normalizeOtTimes(otStartTime, otEndTime),
-      note: note.trim() ? note.trim() : null,
+      note: applySkipDeductionNote(note, skipDeduction) || null,
       status: 'on_duty',
       is_external: !!sourceEntry?.is_external,
       is_trial: !!sourceEntry?.is_trial,
+      skip_deduction: !!skipDeduction,
     })
   }
 
@@ -193,7 +198,7 @@ function DraftCopyRow({
             />
           </div>
         </div>
-        <HoursBreakdown startTime={startTime} endTime={endTime} />
+        <HoursBreakdown startTime={startTime} endTime={endTime} skipDeduction={skipDeduction} />
         <div className="day-panel__draft-times">
           <div className="day-panel__draft-field">
             <span>加班开始</span>
@@ -232,7 +237,7 @@ function DraftCopyRow({
         {otReady ? (
           <div className="entry-form__ot-hours">
             <span className="entry-form__ot-hours-label">加班</span>
-            <HoursBreakdown startTime={otStartTime} endTime={otEndTime} />
+            <HoursBreakdown startTime={otStartTime} endTime={otEndTime} skipDeduction={skipDeduction} />
           </div>
         ) : null}
         {otIncomplete ? (
@@ -248,6 +253,21 @@ function DraftCopyRow({
             placeholder="可选，可多选预设或输入"
           />
         </label>
+        <div className="entry-form__checks">
+          <label>
+            <input
+              type="checkbox"
+              checked={skipDeduction}
+              onChange={(event) => {
+                const skip = event.target.checked
+                setSkipDeduction(skip)
+                setNote((prev) => applySkipDeductionNote(prev, skip))
+              }}
+              disabled={busy}
+            />
+            未休息
+          </label>
+        </div>
         {error ? <p className="day-panel__draft-error">{error}</p> : null}
         <div className="day-panel__item-actions">
           <button

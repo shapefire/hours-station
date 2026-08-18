@@ -33,6 +33,24 @@ def test_ot_two_segment_both_deduct_when_ge_six(client):
     assert r.json()["effective_hours"] == "13.0"
 
 
+def test_ot_two_segment_skip_deduction_skips_both(client):
+    # 主 7:30-16:00 raw 8.5；加班 16:00-23:00 raw 7.0；默认各扣 0.5→14.5；skip→15.5
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-04",
+        "name": "未休双段",
+        "status": "on_duty",
+        "start_time": "07:30",
+        "end_time": "16:00",
+        "ot_start_time": "16:00",
+        "ot_end_time": "23:00",
+        "skip_deduction": True,
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["skip_deduction"] is True
+    assert body["effective_hours"] == "15.5"
+
+
 def test_rest_with_ot_only_counts_ot(client):
     r = client.post("/api/entries", json={
         "work_date": "2026-08-04",

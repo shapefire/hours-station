@@ -166,3 +166,44 @@ def test_copy_person_preserves_status_flags(client):
     assert rest_body["end_time"] is None
     assert rest_body["is_external"] is False
     assert rest_body["is_trial"] is False
+
+
+def test_copy_day_preserves_skip_deduction(client):
+    client.post("/api/entries", json={
+        "work_date": "2026-08-20",
+        "name": "未休源",
+        "start_time": "07:30",
+        "end_time": "16:00",
+        "skip_deduction": True,
+    })
+    r = client.post("/api/entries/copy-day", json={
+        "from_date": "2026-08-20",
+        "to_date": "2026-08-21",
+    })
+    assert r.status_code == 200
+    assert r.json()["copied"] == 1
+    target = client.get("/api/entries", params={"date": "2026-08-21"}).json()
+    assert len(target) == 1
+    assert target[0]["skip_deduction"] is True
+    assert target[0]["effective_hours"] == "8.5"
+    assert "未休息不扣减" in (target[0]["note"] or "")
+
+
+def test_copy_person_preserves_skip_deduction(client):
+    source = client.post("/api/entries", json={
+        "work_date": "2026-08-20",
+        "name": "未休源",
+        "start_time": "07:30",
+        "end_time": "16:00",
+        "skip_deduction": True,
+    }).json()
+    r = client.post("/api/entries/copy-person", json={
+        "source_entry_id": source["id"],
+        "name": "未休目标",
+        "date": "2026-08-22",
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["skip_deduction"] is True
+    assert body["effective_hours"] == "8.5"
+    assert "未休息不扣减" in (body["note"] or "")

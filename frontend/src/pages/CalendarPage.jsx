@@ -249,6 +249,7 @@ export default function CalendarPage() {
           status: 'on_duty',
           is_external: !!payload.is_external,
           is_trial: !!payload.is_trial,
+          skip_deduction: !!payload.skip_deduction,
         })
       } else if (formMode === 'edit' && editingEntry) {
         await api.patch(`/api/entries/${editingEntry.id}`, {
@@ -259,6 +260,7 @@ export default function CalendarPage() {
           note: payload.note,
           is_external: !!payload.is_external,
           is_trial: !!payload.is_trial,
+          skip_deduction: !!payload.skip_deduction,
         })
       } else if (formMode === 'edit-support' && editingEntry) {
         await api.patch(`/api/entries/${editingEntry.id}`, {
@@ -472,6 +474,7 @@ export default function CalendarPage() {
         status: 'on_duty',
         is_external: !!payload.is_external,
         is_trial: !!payload.is_trial,
+        skip_deduction: !!payload.skip_deduction,
       })
       clearDraftState()
       setFeedback(`已复制为「${payload.name}」`)

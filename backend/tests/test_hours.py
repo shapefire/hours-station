@@ -36,3 +36,15 @@ def test_boundary_min_hours_24():
 def test_end_not_after_start_raises():
     with pytest.raises(ValueError):
         effective_hours(time(16, 0), time(7, 30), DEFAULT_TIERS)
+
+def test_skip_deduction_ignores_default_tier():
+    # raw 8.5, default 满6减0.5 → 正常 8.0；skip → 8.5
+    assert effective_hours(time(7, 30), time(16, 0), DEFAULT_TIERS, skip_deduction=True) == Decimal("8.5")
+
+def test_skip_deduction_ignores_custom_one_hour():
+    tiers = [(Decimal("7.0"), Decimal("1.0"))]
+    assert effective_hours(time(9, 0), time(16, 30), tiers, skip_deduction=False) == Decimal("6.5")  # 7.5-1
+    assert effective_hours(time(9, 0), time(16, 30), tiers, skip_deduction=True) == Decimal("7.5")
+
+def test_skip_deduction_false_unchanged():
+    assert effective_hours(time(7, 30), time(16, 0), DEFAULT_TIERS, skip_deduction=False) == Decimal("8.0")

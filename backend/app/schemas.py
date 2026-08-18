@@ -13,6 +13,7 @@ class EntryCreate(BaseModel):
     status: EntryStatus = "on_duty"
     is_external: bool = False
     is_trial: bool = False
+    skip_deduction: bool = False
     start_time: time | None = None
     end_time: time | None = None
     ot_start_time: time | None = None
@@ -26,6 +27,7 @@ class EntryUpdate(BaseModel):
     status: EntryStatus | None = None
     is_external: bool | None = None
     is_trial: bool | None = None
+    skip_deduction: bool | None = None
     start_time: time | None = None
     end_time: time | None = None
     ot_start_time: time | None = None
@@ -61,6 +63,7 @@ class EntryOut(BaseModel):
     status: EntryStatus
     is_external: bool
     is_trial: bool
+    skip_deduction: bool
     start_time: time | None
     end_time: time | None
     ot_start_time: time | None

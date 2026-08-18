@@ -3,6 +3,7 @@ import EmployeeNameField from './EmployeeNameField.jsx'
 import TimeField from './TimeField.jsx'
 import HoursBreakdown from './HoursBreakdown.jsx'
 import NoteField from './NoteField.jsx'
+import { applySkipDeductionNote } from '../utils/skipDeductionNote.js'
 
 const EMPTY = {
   name: '',
@@ -13,6 +14,7 @@ const EMPTY = {
   note: '',
   is_external: false,
   is_trial: false,
+  skip_deduction: false,
 }
 
 function toTimeInputValue(value) {
@@ -41,6 +43,7 @@ function entryToForm(entry) {
     note: entry.note || '',
     is_external: !!entry.is_external,
     is_trial: !!entry.is_trial,
+    skip_deduction: !!entry.skip_deduction,
   }
 }
 
@@ -75,15 +78,18 @@ export default function EntryForm({
     if (!isEdit && !trimmed) return
     if (!isEdit && occupiedMap[trimmed]) return
     if (otIncomplete) return
+    const skip = !!form.skip_deduction
+    const note = applySkipDeductionNote(form.note, skip)
     const payload = {
       name: trimmed,
       start_time: form.start_time,
       end_time: form.end_time,
       ...normalizeOtTimes(form.ot_start_time, form.ot_end_time),
-      note: form.note.trim() ? form.note.trim() : null,
+      note: note.trim() ? note.trim() : null,
       status: 'on_duty',
       is_external: !!form.is_external,
       is_trial: !!form.is_trial,
+      skip_deduction: skip,
     }
     onSubmit?.(payload)
   }
@@ -135,7 +141,11 @@ export default function EntryForm({
         </div>
       </div>
 
-      <HoursBreakdown startTime={form.start_time} endTime={form.end_time} />
+      <HoursBreakdown
+        startTime={form.start_time}
+        endTime={form.end_time}
+        skipDeduction={form.skip_deduction}
+      />
 
       <div className="entry-form__row entry-form__row--times">
         <div className="entry-form__field">
@@ -178,7 +188,11 @@ export default function EntryForm({
       {otReady ? (
         <div className="entry-form__ot-hours">
           <span className="entry-form__ot-hours-label">加班</span>
-          <HoursBreakdown startTime={form.ot_start_time} endTime={form.ot_end_time} />
+          <HoursBreakdown
+            startTime={form.ot_start_time}
+            endTime={form.ot_end_time}
+            skipDeduction={form.skip_deduction}
+          />
         </div>
       ) : null}
 
@@ -214,6 +228,22 @@ export default function EntryForm({
             disabled={busy}
           />
           试工
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.skip_deduction}
+            onChange={(e) => {
+              const skip = e.target.checked
+              setForm((prev) => ({
+                ...prev,
+                skip_deduction: skip,
+                note: applySkipDeductionNote(prev.note, skip),
+              }))
+            }}
+            disabled={busy}
+          />
+          未休息
         </label>
       </div>
 

@@ -24,6 +24,9 @@ class WorkEntry(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="on_duty", server_default="on_duty")
     is_external: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    skip_deduction: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     ot_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)

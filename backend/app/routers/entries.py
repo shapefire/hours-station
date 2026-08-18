@@ -54,6 +54,7 @@ def create_entry(payload: EntryCreate, db: Session = Depends(get_db)):
             note=payload.note,
             ot_start_time=payload.ot_start_time,
             ot_end_time=payload.ot_end_time,
+            skip_deduction=payload.skip_deduction,
         )
     except (ValueError, LookupError) as exc:
         raise _http_from_domain(exc) from exc

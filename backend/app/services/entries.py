@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import WorkEntry
 from app.services.employees import get_or_create_employee
 from app.services.hours import effective_hours
+from app.services.skip_deduction_note import apply_skip_deduction_note
 
 STATUS_LABEL = {
     "on_duty": "到岗",
@@ -37,10 +38,11 @@ def _normalize_ot_times(
 
 def entry_hours_decimal(entry: WorkEntry) -> Decimal:
     total = Decimal("0")
+    skip = bool(getattr(entry, "skip_deduction", False))
     if entry.start_time is not None and entry.end_time is not None:
-        total += effective_hours(entry.start_time, entry.end_time)
+        total += effective_hours(entry.start_time, entry.end_time, skip_deduction=skip)
     if entry.ot_start_time is not None and entry.ot_end_time is not None:
-        total += effective_hours(entry.ot_start_time, entry.ot_end_time)
+        total += effective_hours(entry.ot_start_time, entry.ot_end_time, skip_deduction=skip)
     return total.quantize(Decimal("0.1"))
 
 
@@ -51,7 +53,8 @@ def _normalize_entry_fields(
     is_trial: bool,
     start_time: time | None,
     end_time: time | None,
-) -> tuple[str, bool, bool, time | None, time | None]:
+    skip_deduction: bool = False,
+) -> tuple[str, bool, bool, time | None, time | None, bool]:
     if status not in STATUS_LABEL:
         raise ValueError("无效状态")
     if status in ("rest", "leave"):
@@ -59,19 +62,19 @@ def _normalize_entry_fields(
             raise ValueError("休息/请假不能填写时段")
         if is_external or is_trial:
             raise ValueError("休息/请假不能标记外援或试工")
-        return status, False, False, None, None
+        return status, False, False, None, None, False
     if status == "support":
         if start_time is None or end_time is None:
             raise ValueError("支援必须填写开始与结束时间")
         if is_external or is_trial:
             raise ValueError("支援不能标记外援或试工")
         format_effective_hours(start_time, end_time)
-        return status, False, False, start_time, end_time
+        return status, False, False, start_time, end_time, False
     # on_duty
     if start_time is None or end_time is None:
         raise ValueError("到岗必须填写开始与结束时间")
     format_effective_hours(start_time, end_time)
-    return status, bool(is_external), bool(is_trial), start_time, end_time
+    return status, bool(is_external), bool(is_trial), start_time, end_time, bool(skip_deduction)
 
 
 def format_entry_hours(entry: WorkEntry) -> str:
@@ -87,6 +90,7 @@ def entry_to_dict(entry: WorkEntry) -> dict:
         "status": entry.status,
         "is_external": entry.is_external,
         "is_trial": entry.is_trial,
+        "skip_deduction": bool(getattr(entry, "skip_deduction", False)),
         "start_time": entry.start_time,
         "end_time": entry.end_time,
         "ot_start_time": entry.ot_start_time,
@@ -136,14 +140,17 @@ def create_entry(
     note: str | None = None,
     ot_start_time: time | None = None,
     ot_end_time: time | None = None,
+    skip_deduction: bool = False,
 ) -> WorkEntry:
-    status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
+    status, is_external, is_trial, start_time, end_time, skip_deduction = _normalize_entry_fields(
         status=status,
         is_external=is_external,
         is_trial=is_trial,
         start_time=start_time,
         end_time=end_time,
+        skip_deduction=skip_deduction,
     )
+    note = apply_skip_deduction_note(note, skip_deduction)
     ot_start_time, ot_end_time = _normalize_ot_times(ot_start_time, ot_end_time)
     employee = get_or_create_employee(db, name)
     _ensure_unique_day_employee(db, work_date=work_date, employee_id=employee.id)
@@ -154,6 +161,7 @@ def create_entry(
         status=status,
         is_external=is_external,
         is_trial=is_trial,
+        skip_deduction=skip_deduction,
         start_time=start_time,
         end_time=end_time,
         ot_start_time=ot_start_time,
@@ -200,14 +208,18 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
 
     if "work_date" in fields and fields["work_date"] is not None:
         entry.work_date = fields["work_date"]
-    if "note" in fields:
-        entry.note = fields["note"]
 
     status = fields["status"] if "status" in fields and fields["status"] is not None else entry.status
     is_external = (
         fields["is_external"] if "is_external" in fields and fields["is_external"] is not None else entry.is_external
     )
     is_trial = fields["is_trial"] if "is_trial" in fields and fields["is_trial"] is not None else entry.is_trial
+    skip_deduction = (
+        fields["skip_deduction"]
+        if "skip_deduction" in fields and fields["skip_deduction"] is not None
+        else bool(getattr(entry, "skip_deduction", False))
+    )
+    note = fields["note"] if "note" in fields else entry.note
 
     clear_times = bool(fields.get("clear_times"))
     if status in ("rest", "leave") or clear_times:
@@ -221,14 +233,17 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
     if status != "on_duty":
         is_external = False
         is_trial = False
+        skip_deduction = False
 
-    status, is_external, is_trial, start_time, end_time = _normalize_entry_fields(
+    status, is_external, is_trial, start_time, end_time, skip_deduction = _normalize_entry_fields(
         status=status,
         is_external=is_external,
         is_trial=is_trial,
         start_time=start_time,
         end_time=end_time,
+        skip_deduction=skip_deduction,
     )
+    note = apply_skip_deduction_note(note, skip_deduction)
     if "ot_start_time" in fields or "ot_end_time" in fields:
         ot_start_time = fields["ot_start_time"] if "ot_start_time" in fields else entry.ot_start_time
         ot_end_time = fields["ot_end_time"] if "ot_end_time" in fields else entry.ot_end_time
@@ -239,10 +254,12 @@ def update_entry(db: Session, entry_id: UUID, fields: dict) -> WorkEntry:
     entry.status = status
     entry.is_external = is_external
     entry.is_trial = is_trial
+    entry.skip_deduction = skip_deduction
     entry.start_time = start_time
     entry.end_time = end_time
     entry.ot_start_time = ot_start_time
     entry.ot_end_time = ot_end_time
+    entry.note = note
 
     _ensure_unique_day_employee(
         db,
@@ -303,6 +320,7 @@ def copy_day(db: Session, *, from_date: date, to_date: date) -> dict:
             status=source.status,
             is_external=source.is_external,
             is_trial=source.is_trial,
+            skip_deduction=bool(getattr(source, "skip_deduction", False)),
             start_time=source.start_time,
             end_time=source.end_time,
             ot_start_time=source.ot_start_time,
@@ -347,4 +365,5 @@ def copy_person(
         note=source.note,
         ot_start_time=source.ot_start_time,
         ot_end_time=source.ot_end_time,
+        skip_deduction=bool(getattr(source, "skip_deduction", False)),
     )
