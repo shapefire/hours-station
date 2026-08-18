@@ -878,6 +878,7 @@ export default function DayPanel({
       <DayPreviewModal
         open={previewOpen}
         dateLabel={formatDisplayDate(selectedDate)}
+        dayNote={dayNote}
         entries={entries}
         onClose={() => setPreviewOpen(false)}
       />

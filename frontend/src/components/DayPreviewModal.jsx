@@ -29,6 +29,7 @@ function CopyIcon() {
 export default function DayPreviewModal({
   open,
   dateLabel,
+  dayNote = '',
   entries = [],
   onClose,
 }) {
@@ -36,8 +37,7 @@ export default function DayPreviewModal({
   const closeRef = useRef(null)
   const [copyState, setCopyState] = useState('idle')
   const totalHours = sumPreviewHours(entries)
-  const text = formatDayPreviewText(entries, { dateLabel })
-  const bodyText = formatDayPreviewText(entries)
+  const text = formatDayPreviewText(entries, { dateLabel, dayNote })
 
   useEffect(() => {
     if (!open) {
@@ -130,8 +130,8 @@ export default function DayPreviewModal({
         </header>
 
         <div className="day-preview-modal__body">
-          {bodyText ? (
-            <pre className="day-preview-modal__text">{bodyText}</pre>
+          {text ? (
+            <pre className="day-preview-modal__text">{text}</pre>
           ) : (
             <p className="day-preview-modal__empty">当日暂无安排</p>
           )}
