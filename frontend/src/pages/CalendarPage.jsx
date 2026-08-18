@@ -54,6 +54,9 @@ export default function CalendarPage() {
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [calendarError, setCalendarError] = useState(null)
   const [entriesError, setEntriesError] = useState(null)
+  const [dayNote, setDayNote] = useState(null)
+  const [dayNoteDate, setDayNoteDate] = useState(null)
+  const [dayNoteError, setDayNoteError] = useState(null)
 
   const [formMode, setFormMode] = useState(null)
   const [editingEntry, setEditingEntry] = useState(null)
@@ -69,6 +72,7 @@ export default function CalendarPage() {
   const [statusSyncBusy, setStatusSyncBusy] = useState(false)
   const calendarFetchSeqRef = useRef(0)
   const entriesFetchSeqRef = useRef(0)
+  const dayNoteFetchSeqRef = useRef(0)
 
   const daySummaryByDate = useMemo(() => {
     const map = {}
@@ -111,13 +115,37 @@ export default function CalendarPage() {
     }
   }, [selectedDate])
 
+  const refreshDayNote = useCallback(async () => {
+    if (!selectedDate) {
+      setDayNote(null)
+      setDayNoteDate(null)
+      setDayNoteError(null)
+      return
+    }
+    const seq = ++dayNoteFetchSeqRef.current
+    const forDate = selectedDate
+    try {
+      setDayNoteError(null)
+      const data = await api.get(`/api/day-notes?date=${encodeURIComponent(forDate)}`)
+      if (seq !== dayNoteFetchSeqRef.current) return
+      setDayNote(data?.note ?? null)
+      setDayNoteDate(forDate)
+    } catch (err) {
+      if (seq !== dayNoteFetchSeqRef.current) return
+      setDayNote(null)
+      setDayNoteDate(forDate)
+      setDayNoteError(err.message || '加载整日备注失败')
+    }
+  }, [selectedDate])
+
   useEffect(() => {
     refreshCalendar()
   }, [refreshCalendar])
 
   useEffect(() => {
     refreshEntries()
-  }, [refreshEntries])
+    refreshDayNote()
+  }, [refreshEntries, refreshDayNote])
 
   useEffect(() => {
     if (!pasteMode) return undefined
@@ -310,6 +338,16 @@ export default function CalendarPage() {
     await Promise.all([refreshCalendar(), refreshEntries()])
   }
 
+  async function handleSaveDayNote(note) {
+    if (!selectedDate) return
+    const data = await api.put(`/api/day-notes/${encodeURIComponent(selectedDate)}`, {
+      note: note ?? '',
+    })
+    setDayNote(data?.note ?? null)
+    setDayNoteDate(selectedDate)
+    setDayNoteError(null)
+  }
+
   async function handleRemoveEntry(entry) {
     try {
       await api.delete(`/api/entries/${entry.id}`)
@@ -447,7 +485,7 @@ export default function CalendarPage() {
 
   return (
     <div className={`calendar-page${pasteMode ? ' is-paste-mode' : ''}`}>
-      {(pasteMode || feedback || calendarError || entriesError) ? (
+      {(pasteMode || feedback || calendarError || entriesError || dayNoteError) ? (
         <div className="calendar-page__alerts">
           {pasteMode ? (
             <PasteModeBar
@@ -461,9 +499,9 @@ export default function CalendarPage() {
               {feedback}
             </div>
           ) : null}
-          {(calendarError || entriesError) && (
+          {(calendarError || entriesError || dayNoteError) && (
             <div className="calendar-page__banner" role="alert">
-              {calendarError || entriesError}
+              {calendarError || entriesError || dayNoteError}
             </div>
           )}
         </div>
@@ -513,6 +551,8 @@ export default function CalendarPage() {
           onAddSupport={handleAddSupport}
           onEditSupport={handleEditSupport}
           onSaveOvertime={handleSaveOvertime}
+          dayNote={dayNoteDate === selectedDate ? dayNote : null}
+          onSaveDayNote={handleSaveDayNote}
         />
       </div>
     </div>

@@ -610,6 +610,70 @@ textarea {
   letter-spacing: 0.01em;
 }
 
+.day-note-editor {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+  border-radius: 0.4rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--bg0) 70%, transparent);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.day-note-editor--empty {
+  color: var(--muted);
+}
+
+.day-note-editor:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 40%, var(--bg0));
+}
+
+.day-note-editor--editing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  cursor: default;
+  padding: 0.45rem 0.55rem;
+}
+
+.day-note-editor__input {
+  width: 100%;
+  min-height: 2.6rem;
+  resize: vertical;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--bg0);
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.day-note-editor__input:disabled {
+  opacity: 0.7;
+  background: var(--bg1);
+  cursor: not-allowed;
+}
+
+.day-note-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.day-note-editor__error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #8b2e2a;
+}
+
 .day-panel__section {
   display: flex;
   flex-direction: column;

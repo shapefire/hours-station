@@ -8,6 +8,7 @@ import HoursBreakdown from './HoursBreakdown.jsx'
 import NoteField from './NoteField.jsx'
 import StatusMultiPick from './StatusMultiPick.jsx'
 import SupportForm from './SupportForm.jsx'
+import DayNoteEditor from './DayNoteEditor.jsx'
 
 const STATUS_LABEL = {
   on_duty: '到岗',
@@ -413,6 +414,8 @@ export default function DayPanel({
   onAddSupport,
   onEditSupport,
   onSaveOvertime,
+  dayNote = null,
+  onSaveDayNote,
 }) {
   const bodyRef = useRef(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -510,6 +513,12 @@ export default function DayPanel({
           <p className="day-panel__summary">
             休息 {rest.length} · 请假 {leave.length} · 支援 {support.length}
           </p>
+          <DayNoteEditor
+            key={selectedDate || 'none'}
+            note={dayNote}
+            onSave={onSaveDayNote}
+            disabled={!selectedDate}
+          />
         </div>
         <div className="day-panel__header-actions">
           <button
