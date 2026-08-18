@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
 import Metric from './Metric.jsx'
+import RosterStatusBadge from './RosterStatusBadge.jsx'
 
 /**
  * Combobox: select from roster and/or free-type a new name.
  * Soft-delete from roster via × on each option (history entries kept).
- * Optionally shows month_hours for the calendar month in view.
+ * Optionally shows month_hours and month_rest_days for the calendar month in view.
  */
 export default function EmployeeNameField({
   value,
@@ -148,7 +149,7 @@ export default function EmployeeNameField({
 
   const showList = open && !disabled
   const exactMatch = roster.some((emp) => emp.name === value.trim())
-  const showMonthHours = monthYear != null && month != null
+  const showMonthStats = monthYear != null && month != null
 
   return (
     <div className="name-field" ref={rootRef}>
@@ -219,10 +220,11 @@ export default function EmployeeNameField({
 
       {showList ? (
         <ul id={listId} className="name-field__list" role="listbox">
-          {showMonthHours ? (
+          {showMonthStats ? (
             <li className="name-field__colhead" role="presentation">
               <span>姓名</span>
               <span>当月已排</span>
+              <span>已休息</span>
             </li>
           ) : null}
           {filtered.length === 0 ? (
@@ -257,12 +259,22 @@ export default function EmployeeNameField({
                     <button
                       type="button"
                       id={`${listId}-opt-${emp.id}`}
-                      className="name-field__option"
+                      className={[
+                        'name-field__option',
+                        showMonthStats ? 'name-field__option--stats' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       disabled={occupied}
                       onClick={() => selectName(emp.name)}
                     >
-                      <span className="name-field__option-name">{emp.name}</span>
-                      {showMonthHours ? (
+                      <span className="name-field__option-name">
+                        <span className="name-field__option-name-text">{emp.name}</span>
+                        {occupied && occupiedLabel ? (
+                          <RosterStatusBadge label={occupiedLabel} />
+                        ) : null}
+                      </span>
+                      {showMonthStats ? (
                         <span className="name-field__option-hours">
                           <Metric
                             value={emp.month_hours != null ? emp.month_hours : '0.0'}
@@ -271,8 +283,14 @@ export default function EmployeeNameField({
                           />
                         </span>
                       ) : null}
-                      {occupied && occupiedLabel ? (
-                        <span className="name-field__option-hint">已{occupiedLabel}</span>
+                      {showMonthStats ? (
+                        <span className="name-field__option-rest">
+                          <Metric
+                            value={emp.month_rest_days != null ? emp.month_rest_days : 0}
+                            unit="天"
+                            chip
+                          />
+                        </span>
                       ) : null}
                     </button>
                     <button

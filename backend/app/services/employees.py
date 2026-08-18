@@ -56,6 +56,24 @@ def _month_hours_by_employee(db: Session, year: int, month: int) -> dict[UUID, D
     return totals
 
 
+def _month_rest_days_by_employee(db: Session, year: int, month: int) -> dict[UUID, int]:
+    start = date(year, month, 1)
+    end = date(year, month, monthrange(year, month)[1])
+    entries = list(
+        db.scalars(
+            select(WorkEntry).where(
+                WorkEntry.work_date >= start,
+                WorkEntry.work_date <= end,
+                WorkEntry.status == "rest",
+            )
+        ).all()
+    )
+    counts: dict[UUID, int] = {}
+    for entry in entries:
+        counts[entry.employee_id] = counts.get(entry.employee_id, 0) + 1
+    return counts
+
+
 def list_employees(
     db: Session,
     q: str | None = None,
@@ -70,16 +88,19 @@ def list_employees(
     employees = list(db.scalars(stmt).all())
 
     hours_map: dict[UUID, Decimal] = {}
-    include_hours = year is not None and month is not None
-    if include_hours:
+    rest_map: dict[UUID, int] = {}
+    include_month_stats = year is not None and month is not None
+    if include_month_stats:
         hours_map = _month_hours_by_employee(db, year, month)
+        rest_map = _month_rest_days_by_employee(db, year, month)
 
     rows: list[dict] = []
     for emp in employees:
         row = {"id": emp.id, "name": emp.name}
-        if include_hours:
+        if include_month_stats:
             total = hours_map.get(emp.id, Decimal("0"))
             row["month_hours"] = f"{total.quantize(Decimal('0.1'))}"
+            row["month_rest_days"] = rest_map.get(emp.id, 0)
         rows.append(row)
     return rows
 

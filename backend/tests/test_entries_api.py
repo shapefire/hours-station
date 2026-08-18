@@ -86,6 +86,45 @@ def test_delete_entry(client):
     assert listed.json() == []
 
 
+def test_employees_month_rest_days(client):
+    client.post("/api/entries", json={
+        "work_date": "2026-08-01",
+        "name": "张三",
+        "status": "rest",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-02",
+        "name": "张三",
+        "status": "rest",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-03",
+        "name": "张三",
+        "status": "leave",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-08-04",
+        "name": "李四",
+        "start_time": "07:30",
+        "end_time": "16:00",
+    })
+    client.post("/api/entries", json={
+        "work_date": "2026-07-31",
+        "name": "张三",
+        "status": "rest",
+    })
+
+    r = client.get("/api/employees", params={"year": 2026, "month": 8})
+    assert r.status_code == 200
+    by_name = {e["name"]: e for e in r.json()}
+    assert by_name["张三"]["month_rest_days"] == 2
+    assert by_name["李四"]["month_rest_days"] == 0
+
+    r_plain = client.get("/api/employees")
+    assert r_plain.status_code == 200
+    assert r_plain.json()[0].get("month_rest_days") is None
+
+
 def test_employees_search(client):
     client.post("/api/entries", json={
         "work_date": "2026-08-04",

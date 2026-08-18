@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import api from '../api/client.js'
+import Metric from './Metric.jsx'
+import RosterStatusBadge from './RosterStatusBadge.jsx'
 
 export default function StatusMultiPick({
   open,
@@ -7,6 +9,8 @@ export default function StatusMultiPick({
   initialSelected = [],
   occupiedMap = {},
   allowStatusLabel,
+  monthYear = null,
+  month = null,
   onConfirm,
   onClose,
 }) {
@@ -20,6 +24,7 @@ export default function StatusMultiPick({
     () => [...initialSelected].sort().join('\0'),
     [initialSelected],
   )
+  const showMonthStats = monthYear != null && month != null
 
   useEffect(() => {
     if (!open) return undefined
@@ -28,9 +33,16 @@ export default function StatusMultiPick({
     setLoading(true)
     closeRef.current?.focus()
 
+    const params = new URLSearchParams()
+    if (showMonthStats) {
+      params.set('year', String(monthYear))
+      params.set('month', String(month))
+    }
+    const qs = params.toString()
+
     let cancelled = false
     api
-      .get('/api/employees')
+      .get(`/api/employees${qs ? `?${qs}` : ''}`)
       .then((rows) => {
         if (cancelled) return
         setRoster(Array.isArray(rows) ? rows : [])
@@ -56,7 +68,7 @@ export default function StatusMultiPick({
       document.body.style.overflow = prevOverflow
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open/initialKey
-  }, [open, initialKey, onClose])
+  }, [open, initialKey, onClose, monthYear, month, showMonthStats])
 
   if (!open) return null
 
@@ -114,36 +126,58 @@ export default function StatusMultiPick({
             <p className="status-multi-pick__status">花名册为空</p>
           ) : null}
 
-          <ul className="status-multi-pick__list">
-            {roster.map((emp) => {
-              const name = emp.name
-              const occupied = isOccupied(name)
-              const occupiedLabel = occupiedMap[name]
-              const checked = selected.has(name)
-              return (
-                <li key={emp.id || name}>
-                  <label
-                    className={
-                      occupied
-                        ? 'status-multi-pick__option is-disabled'
-                        : 'status-multi-pick__option'
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={occupied}
-                      onChange={() => toggleName(name)}
-                    />
-                    <span className="status-multi-pick__name">{name}</span>
-                    {occupied && occupiedLabel ? (
-                      <span className="status-multi-pick__hint">已{occupiedLabel}</span>
-                    ) : null}
-                  </label>
+          {!loading && !error && roster.length > 0 ? (
+            <ul className="status-multi-pick__list">
+              {showMonthStats ? (
+                <li className="status-multi-pick__colhead" role="presentation">
+                  <span className="status-multi-pick__colhead-check" aria-hidden="true" />
+                  <span>姓名</span>
+                  <span>已休息</span>
                 </li>
-              )
-            })}
-          </ul>
+              ) : null}
+              {roster.map((emp) => {
+                const name = emp.name
+                const occupied = isOccupied(name)
+                const occupiedLabel = occupiedMap[name]
+                const checked = selected.has(name)
+                return (
+                  <li key={emp.id || name}>
+                    <label
+                      className={[
+                        'status-multi-pick__option',
+                        showMonthStats ? 'status-multi-pick__option--stats' : '',
+                        occupied ? 'is-disabled' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={occupied}
+                        onChange={() => toggleName(name)}
+                      />
+                      <span className="status-multi-pick__name">
+                        <span className="status-multi-pick__name-text">{name}</span>
+                        {occupied && occupiedLabel ? (
+                          <RosterStatusBadge label={occupiedLabel} />
+                        ) : null}
+                      </span>
+                      {showMonthStats ? (
+                        <span className="status-multi-pick__rest-days">
+                          <Metric
+                            value={emp.month_rest_days != null ? emp.month_rest_days : 0}
+                            unit="天"
+                            chip
+                          />
+                        </span>
+                      ) : null}
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
         </div>
 
         <footer className="status-multi-pick__footer">

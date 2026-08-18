@@ -615,6 +615,8 @@ export default function DayPanel({
           initialSelected={multiPick.initialSelected}
           occupiedMap={occupiedMap}
           allowStatusLabel={multiPick.allowStatusLabel}
+          monthYear={monthYear}
+          month={month}
           onConfirm={handleMultiPickConfirm}
           onClose={() => setMultiPick(null)}
         />

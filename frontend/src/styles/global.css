@@ -743,6 +743,39 @@ textarea {
   border: 1px solid color-mix(in srgb, var(--rest) 28%, transparent);
 }
 
+.badge--on-duty {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg0));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.badge--rest-status {
+  color: var(--rest);
+  background: color-mix(in srgb, var(--rest) 14%, var(--bg0));
+  border: 1px solid color-mix(in srgb, var(--rest) 32%, transparent);
+}
+
+.badge--leave {
+  color: #6b2a28;
+  background: color-mix(in srgb, #6b2a28 10%, var(--bg0));
+  border: 1px solid color-mix(in srgb, #6b2a28 28%, transparent);
+}
+
+.badge--roster-support {
+  color: #1e4f7a;
+  background: color-mix(in srgb, #3b82c4 16%, var(--bg0));
+  border: 1px solid color-mix(in srgb, #3b82c4 35%, transparent);
+}
+
+.roster-status-badge {
+  flex-shrink: 0;
+}
+
+.name-field__option-row--occupied .roster-status-badge,
+.status-multi-pick__option.is-disabled .roster-status-badge {
+  opacity: 1;
+}
+
 .day-panel__support-item {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--rest) 35%, transparent);
@@ -792,6 +825,27 @@ textarea {
   gap: 0.25rem;
 }
 
+.status-multi-pick__colhead {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr) 3.5rem;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.15rem 0.5rem 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  margin-bottom: 0.1rem;
+}
+
+.status-multi-pick__colhead-check {
+  width: 1.1rem;
+}
+
+.status-multi-pick__colhead span:last-child {
+  text-align: center;
+}
+
 .status-multi-pick__option {
   display: flex;
   align-items: center;
@@ -801,6 +855,13 @@ textarea {
   cursor: pointer;
   font-size: 0.92rem;
   color: var(--ink);
+}
+
+.status-multi-pick__option--stats {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr) 3.5rem;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .status-multi-pick__option:hover {
@@ -825,9 +886,26 @@ textarea {
 .status-multi-pick__name {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.status-multi-pick__option--stats .status-multi-pick__name {
+  flex: unset;
+}
+
+.status-multi-pick__name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.status-multi-pick__rest-days {
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.82rem;
 }
 
 .status-multi-pick__hint {
@@ -1206,7 +1284,7 @@ textarea {
 
 .name-field__colhead {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 4.5rem 3.5rem;
   gap: 0.35rem;
   padding: 0.25rem 2rem 0.35rem 0.55rem;
   font-size: 0.72rem;
@@ -1216,17 +1294,14 @@ textarea {
   margin-bottom: 0.15rem;
 }
 
-.name-field__colhead span:last-child {
+.name-field__colhead span:not(:first-child) {
   text-align: center;
 }
 
 .name-field__option {
   flex: 1;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.35rem;
+  display: block;
   text-align: left;
   border: none;
   border-radius: 0.3rem;
@@ -1235,6 +1310,13 @@ textarea {
   padding: 0.4rem 0.55rem;
   cursor: pointer;
   font: inherit;
+}
+
+.name-field__option--stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.5rem 3.5rem;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .name-field__option:disabled {
@@ -1248,19 +1330,22 @@ textarea {
   background: transparent;
 }
 
-.name-field__option-hint {
-  grid-column: 1 / -1;
-  font-size: 0.72rem;
-  color: var(--muted);
+.name-field__option-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
-.name-field__option-name {
+.name-field__option-name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
-.name-field__option-hours {
+.name-field__option-hours,
+.name-field__option-rest {
   text-align: center;
   white-space: nowrap;
   font-size: 0.82rem;
