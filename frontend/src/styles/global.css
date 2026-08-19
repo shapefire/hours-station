@@ -2177,6 +2177,8 @@ textarea {
   border: 1px solid var(--separator);
   background: var(--bg-app);
   color: var(--label);
+  user-select: text;
+  -webkit-user-drag: none;
   font: inherit;
   font-size: 0.88rem;
 }

@@ -207,10 +207,6 @@ export default function RosterSettingsPanel() {
   }
 
   function handleDragStart(event, id) {
-    if (event.target.closest('input, button, label')) {
-      event.preventDefault()
-      return
-    }
     dragIdRef.current = id
     orderBeforeDragRef.current = rosterRef.current.map((emp) => emp.id).join(',')
     event.dataTransfer.effectAllowed = 'move'
@@ -292,13 +288,16 @@ export default function RosterSettingsPanel() {
           <li
             key={emp.id}
             className="settings-modal__item"
-            draggable={!busy}
-            onDragStart={(event) => handleDragStart(event, emp.id)}
             onDragOver={handleDragOver}
             onDrop={(event) => handleDrop(event, emp.id)}
-            onDragEnd={handleDragEnd}
           >
-            <span className="roster-drag" aria-hidden>
+            <span
+              className="roster-drag"
+              draggable={!busy}
+              aria-label={`拖动调整 ${emp.name} 的顺序`}
+              onDragStart={(event) => handleDragStart(event, emp.id)}
+              onDragEnd={handleDragEnd}
+            >
               ⋮⋮
             </span>
             <label className="settings-modal__item-check">
