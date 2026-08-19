@@ -134,6 +134,7 @@ class StatsPersonOut(BaseModel):
     name: str
     attendance_days: int
     rest_days: int
+    leave_days: int
     support_days: int
     support_hours: str
     total_hours: str
@@ -151,7 +152,7 @@ class StatsMonthlyOut(BaseModel):
 
 class StatsDayOut(BaseModel):
     date: date
-    status: Literal["work", "rest", "leave", "support"]
+    status: Literal["work", "rest", "leave", "support", "unassigned"]
     start_time: time | None
     end_time: time | None
     effective_hours: str | None

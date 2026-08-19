@@ -33,7 +33,8 @@ def test_monthly_stats_summary_and_rest_days(client):
     assert person["attendance_days"] == 2
     assert person["support_days"] == 0
     assert person["support_hours"] == "0.0"
-    assert person["rest_days"] == 29  # 31 - 2
+    assert person["rest_days"] == 0  # 只统计已安排 rest，无 rest 记录
+    assert person["leave_days"] == 0
     assert person["total_hours"] == "16.0"
     assert person["avg_hours"] == "8.0"
 
@@ -66,7 +67,8 @@ def test_monthly_stats_support_not_in_store_hours_or_rest(client):
     assert person["attendance_days"] == 1
     assert person["support_days"] == 1
     assert person["support_hours"] == "8.5"
-    assert person["rest_days"] == 29  # 31 - 1 - 1
+    assert person["rest_days"] == 0  # 只统计已安排 rest
+    assert person["leave_days"] == 1  # 只统计已安排 leave
     assert person["total_hours"] == "8.0"
 
     days = client.get(
@@ -77,7 +79,7 @@ def test_monthly_stats_support_not_in_store_hours_or_rest(client):
     assert by["2026-08-01"]["status"] == "work"
     assert by["2026-08-02"]["status"] == "support"
     assert by["2026-08-03"]["status"] == "leave"
-    assert by["2026-08-04"]["status"] == "rest"
+    assert by["2026-08-04"]["status"] == "unassigned"  # 无记录=未安排
 
 
 def test_monthly_stats_sorted_by_total_hours_desc(client):
@@ -101,7 +103,7 @@ def test_monthly_stats_empty_month(client):
     assert body["people"] == []
 
 
-def test_employee_month_days_covers_full_month_with_rest(client):
+def test_employee_month_days_covers_full_month_with_unassigned(client):
     entry = _post_entry(client, work_date="2026-08-01", name="张三")
     employee_id = entry["employee_id"]
 
@@ -122,13 +124,13 @@ def test_employee_month_days_covers_full_month_with_rest(client):
     }
     assert days[1] == {
         "date": "2026-08-02",
-        "status": "rest",
+        "status": "unassigned",
         "start_time": None,
         "end_time": None,
         "effective_hours": None,
     }
-    rest_count = sum(1 for d in days if d["status"] == "rest")
-    assert rest_count == 30
+    unassigned_count = sum(1 for d in days if d["status"] == "unassigned")
+    assert unassigned_count == 30
     work_count = sum(1 for d in days if d["status"] == "work")
     assert work_count == 1
 

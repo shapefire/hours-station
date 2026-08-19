@@ -21,5 +21,8 @@ ROWS_PER_PERSON = 2
 SEQ_COL, NAME_COL, POSITION_COL, LABEL_COL = 0, 1, 2, 3
 TEMPLATE_PERSON_SLOTS = 15  # 序号 1–15 成对「上班/下班」行
 
-# 「支援」表头文字在 0-indexed (2, 39)（openpyxl AN3），数值写相邻空列 AO
-SUPPORT_VALUE_COL = 40
+# 「支援」表头文字在 openpyxl AN3（人员槽第 1 个 on 行）。
+# 导出数值口径：
+# - 第 1 位人员：写入 AN4（该人员的 off 行，避免覆盖 AN3 标题）
+# - 第 2 位及后续：写入各自的 on 行（第一行）的 AN 列
+SUPPORT_VALUE_COL = 39

@@ -13,6 +13,9 @@ from app.services.hr_excel_layout import (
     ROWS_PER_PERSON,
     SEQ_COL,
     SUPPORT_VALUE_COL,
+    TEMPLATE_PERSON_SLOTS,
+    TEMPLATE_PATH,
+    TOTAL_HEADER_COL,
     WEEKDAY_ROW,
 )
 
@@ -84,7 +87,11 @@ def test_duty_cells_and_support_column(client, db):
     assert on_cell in (8, 8.0)
     assert off_cell in (17.5, 17.50)
     # 无支援 → 支援列空
-    assert ws.cell(PERSON_START_ROW + 1, SUPPORT_VALUE_COL + 1).value in (None, "")
+    # 模板在 AN3 放了“支援”标题；第一位人员的支援数值应在 AN4
+    on_row = PERSON_START_ROW + 1  # openpyxl 1-based
+    off_row = on_row + 1
+    an_col = 40  # openpyxl 列号：AN
+    assert ws.cell(off_row, an_col).value in (None, "")
 
 
 def test_rest_with_ot_and_pure_rest(client, db):
@@ -138,7 +145,10 @@ def test_support_day_and_support_column(client, db):
     assert ws.cell(on_row, day5_col).value in (11.5, 11.50)
     assert ws.cell(off_row, day5_col).value in (19, 19.0)
     # 支援列 = 有效工时 8-0.5=7.5
-    support_val = ws.cell(on_row, SUPPORT_VALUE_COL + 1).value
+    # 第一位人员的支援数值应在 AN4
+    off_row = on_row + 1
+    an_col = 40  # openpyxl 列号：AN
+    support_val = ws.cell(off_row, an_col).value
     assert support_val in (7.5, 7.50)
 
 
@@ -152,3 +162,63 @@ def test_store_name_and_month_anchor(db):
     if hasattr(month_val, "date"):
         month_val = month_val.date()
     assert month_val == date(2026, 8, 1)
+
+
+def test_on_duty_short_shift_no_deduction_in_export_cells(client, db):
+    """
+    主时段扣减只应在命中扣减档时发生；
+    小于 min_hours 的班次不应仍然在导出里额外扣减（当前实现会写死 +0.5，故此用例会失败）。
+    """
+    client.post(
+        "/api/entries",
+        json={
+            "work_date": "2026-08-01",
+            "name": "短班",
+            "start_time": "08:00",
+            "end_time": "11:30",
+        },
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+
+    on_row = PERSON_START_ROW + 1
+    off_row = PERSON_START_ROW + 2
+    day1_col = DAY1_COL + 1
+
+    # 预期：导出里的上班/下班差值应等于系统 effective_hours（无 OT）。
+    from datetime import time
+    from app.services.hours import effective_hours
+    from app.services.hr_export_clock import time_to_hour_number, excel_hour_value
+
+    start_t = time(8, 0)
+    end_t = time(11, 30)
+    effective_main = effective_hours(start_t, end_t)
+    end_h = time_to_hour_number(end_t)
+    expected_on = end_h - effective_main
+    expected_off = end_h
+
+    on_cell = ws.cell(on_row, day1_col).value
+    off_cell = ws.cell(off_row, day1_col).value
+
+    expected_on_val = excel_hour_value(expected_on)
+    expected_off_val = excel_hour_value(expected_off)
+
+    assert on_cell in (expected_on_val, float(expected_on_val))
+    assert off_cell in (expected_off_val, float(expected_off_val))
+
+
+def test_template_total_formulas_match_full_day_range():
+    """
+    模板“總計/AJ”公式的日列范围应从 E 列开始（第 1 日列），并一直覆盖到 AI 列。
+    """
+    wb = load_workbook(TEMPLATE_PATH, data_only=False)
+    ws = wb.active
+
+    aj_col = TOTAL_HEADER_COL + 1  # openpyxl 1-based
+
+    for person_index in range(TEMPLATE_PERSON_SLOTS):
+        on_row = PERSON_START_ROW + person_index * ROWS_PER_PERSON + 1
+        off_row = on_row + 1
+
+        expected = f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
+        assert ws.cell(on_row, aj_col).value == expected

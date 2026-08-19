@@ -275,5 +275,6 @@ def test_stats_total_hours_include_rest_ot_not_support(client):
     assert person["support_hours"] == "9.5"
     assert person["attendance_days"] == 1
     assert person["support_days"] == 1
-    assert person["rest_days"] == 29  # 31 - 1 - 1
+    assert person["rest_days"] == 1  # 只统计已安排 rest（8/2 休息+加班）
+    assert person["leave_days"] == 0
     assert body["total_hours"] == "10.5"

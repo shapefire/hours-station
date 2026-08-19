@@ -12,6 +12,7 @@ function formatAvgHours(avg) {
 }
 
 function dayRowClass(status) {
+  if (status === 'unassigned') return 'stats-days__row--rest'
   if (status === 'rest') return 'stats-days__row--rest'
   if (status === 'leave') return 'stats-days__row--leave'
   if (status === 'support') return 'stats-days__row--support'
@@ -19,6 +20,7 @@ function dayRowClass(status) {
 }
 
 function dayStatusLabel(day) {
+  if (day.status === 'unassigned') return '未安排'
   if (day.status === 'rest') return '休息'
   if (day.status === 'leave') return '请假'
   if (day.status === 'support') {
@@ -48,17 +50,20 @@ function DayDetailList({ days, expectedCount }) {
         </thead>
         <tbody>
           {(days || []).map((day) => {
+            const isUnassigned = day.status === 'unassigned'
             const isRest = day.status === 'rest'
             const isLeave = day.status === 'leave'
             const isSupport = day.status === 'support'
-            const showHours = !isRest && !isLeave
-            const labelClass = isRest
+            const showHours = !isRest && !isLeave && !isUnassigned
+            const labelClass = isUnassigned
               ? 'stats-days__rest-label'
-              : isLeave
-                ? 'stats-days__leave-label'
-                : isSupport
-                  ? 'stats-days__support-label'
-                  : 'stats-days__time'
+              : isRest
+                ? 'stats-days__rest-label'
+                : isLeave
+                  ? 'stats-days__leave-label'
+                  : isSupport
+                    ? 'stats-days__support-label'
+                    : 'stats-days__time'
 
             return (
               <tr key={day.date} className={dayRowClass(day.status)}>
@@ -149,6 +154,7 @@ export default function StatsPeopleTable({ year, month, people }) {
             <th scope="col">姓名</th>
             <th scope="col">出勤天数</th>
             <th scope="col">休息天数</th>
+            <th scope="col">请假天数</th>
             <th scope="col">支援天数</th>
             <th scope="col">支援工时</th>
             <th scope="col">总工时</th>
@@ -190,6 +196,9 @@ export default function StatsPeopleTable({ year, month, people }) {
                     <Metric value={person.rest_days} unit="天" chip />
                   </td>
                   <td className="stats-people__num">
+                    <Metric value={person.leave_days} unit="天" chip />
+                  </td>
+                  <td className="stats-people__num">
                     <Metric value={person.support_days} unit="天" chip />
                   </td>
                   <td className="stats-people__num stats-people__hours stats-people__support-hours">
@@ -208,7 +217,7 @@ export default function StatsPeopleTable({ year, month, people }) {
                 </tr>
                 {open ? (
                   <tr className="stats-people__detail-row">
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="stats-people__detail">
                         {loadingId === id && !daysByEmployee[id] ? (
                           <p className="stats-page__status">加载逐日明细…</p>

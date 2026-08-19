@@ -122,7 +122,9 @@ def _ensure_person_rows(ws: Worksheet, person_index: int) -> int:
     return on_row
 
 
-def _clear_person_slot(ws: Worksheet, on_row0: int, days_in_month: int) -> None:
+def _clear_person_slot(
+    ws: Worksheet, on_row0: int, days_in_month: int, person_index: int
+) -> None:
     on_r = on_row0 + 1
     off_r = on_row0 + 2
     _set_cell(ws, on_r, SEQ_COL + 1, None)
@@ -131,7 +133,10 @@ def _clear_person_slot(ws: Worksheet, on_row0: int, days_in_month: int) -> None:
     for r in (on_r, off_r):
         for d in range(31):
             _set_cell(ws, r, DAY1_COL + 1 + d, None)
-        _set_cell(ws, r, SUPPORT_VALUE_COL + 1, None)
+        # AN3 是模板里的“支援”标题（第一位 on 行）。
+        # 当 person_index==0 且 r==on_r 时，跳过清空以避免覆盖标题。
+        if not (person_index == 0 and r == on_r):
+            _set_cell(ws, r, SUPPORT_VALUE_COL + 1, None)
 
 
 def _write_day_headers(ws: Worksheet, year: int, month: int) -> int:
@@ -184,7 +189,7 @@ def build_export_workbook(db: Session, year: int, month: int) -> bytes:
     for i in range(TEMPLATE_PERSON_SLOTS):
         on_row0 = PERSON_START_ROW + i * ROWS_PER_PERSON
         if i >= len(people):
-            _clear_person_slot(ws, on_row0, days)
+            _clear_person_slot(ws, on_row0, days, i)
             continue
         _fill_person(ws, i, people[i], by_emp.get(people[i].id, []), days)
 
@@ -231,8 +236,19 @@ def _fill_person(
         (entry_hours_decimal(e) for e in entries if e.status == "support"),
         Decimal("0"),
     )
-    if support_sum > 0:
-        _set_cell(ws, on_r, SUPPORT_VALUE_COL + 1, excel_hour_value(support_sum))
+    support_col = SUPPORT_VALUE_COL + 1
+
+    # “支援”标题占用第一位人员 on 行（AN3），数值需要写到 AN4。
+    if index == 0:
+        if support_sum > 0:
+            _set_cell(ws, off_r, support_col, excel_hour_value(support_sum))
+        else:
+            # 保持 AN3 标题，保证 AN4 为空
+            _set_cell(ws, off_r, support_col, None)
+        # 不触碰 on_r（AN3 标题）
     else:
-        _set_cell(ws, on_r, SUPPORT_VALUE_COL + 1, None)
-    _set_cell(ws, off_r, SUPPORT_VALUE_COL + 1, None)
+        if support_sum > 0:
+            _set_cell(ws, on_r, support_col, excel_hour_value(support_sum))
+        else:
+            _set_cell(ws, on_r, support_col, None)
+        _set_cell(ws, off_r, support_col, None)

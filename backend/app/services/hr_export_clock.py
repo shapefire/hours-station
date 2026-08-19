@@ -36,8 +36,15 @@ def clock_in_out_for_entry(entry) -> tuple[Decimal | None, Decimal | None]:
     start, end = entry.start_time, entry.end_time
     if start is None or end is None:
         return None, None
-    start_h = time_to_hour_number(start)
     end_h = time_to_hour_number(end)
-    if not getattr(entry, "skip_deduction", False):
-        start_h = start_h + Decimal("0.5")
-    return start_h, end_h + ot
+    # 主时段的扣减应与系统 effective_hours 口径一致：
+    # - 未满足扣减档时 deduct=0，不应仍然额外写入 +0.5
+    # - 未勾（skip_deduction=false）时才可能发生扣减
+    from app.services.hours import effective_hours
+
+    skip_deduction = bool(getattr(entry, "skip_deduction", False))
+    effective_main = effective_hours(start, end, skip_deduction=skip_deduction)
+    # Excel 模板通过 (下班 - 上班) 得出当日有效工时：
+    # 这里让 (end_h - start_h_adjusted) 等于 effective_main
+    start_h_adjusted = end_h - effective_main
+    return start_h_adjusted, end_h + ot

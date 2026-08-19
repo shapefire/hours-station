@@ -51,8 +51,12 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
     for employee_id, emp_entries in by_employee.items():
         duty_entries = [e for e in emp_entries if e.status == "on_duty"]
         support_entries = [e for e in emp_entries if e.status == "support"]
+        rest_entries = [e for e in emp_entries if e.status == "rest"]
+        leave_entries = [e for e in emp_entries if e.status == "leave"]
         attendance_days = len({e.work_date for e in duty_entries})
         support_days = len({e.work_date for e in support_entries})
+        rest_days = len({e.work_date for e in rest_entries})
+        leave_days = len({e.work_date for e in leave_entries})
         support_total = sum(
             (entry_hours_decimal(e) for e in support_entries),
             Decimal("0"),
@@ -73,7 +77,8 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
                 "employee_id": employee_id,
                 "name": emp_entries[0].employee.name,
                 "attendance_days": attendance_days,
-                "rest_days": days_in_month - attendance_days - support_days,
+                "rest_days": rest_days,
+                "leave_days": leave_days,
                 "support_days": support_days,
                 "support_hours": _format_hours(support_total),
                 "total_hours": _format_hours(total),
@@ -122,7 +127,7 @@ def employee_month_days(
             days.append(
                 {
                     "date": day,
-                    "status": "rest",
+                    "status": "unassigned",
                     "start_time": None,
                     "end_time": None,
                     "effective_hours": None,
