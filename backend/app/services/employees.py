@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,10 @@ def get_or_create_employee(db: Session, name: str) -> Employee:
             emp.is_active = True
             db.flush()
         return emp
-    emp = Employee(name=cleaned, is_active=True)
+    max_order = db.scalar(select(func.coalesce(func.max(Employee.sort_order), -1)))
+    if max_order is None:
+        max_order = -1
+    emp = Employee(name=cleaned, is_active=True, sort_order=int(max_order) + 1)
     try:
         with db.begin_nested():
             db.add(emp)
@@ -152,7 +155,9 @@ def list_employees(
     month: int | None = None,
 ) -> list[dict]:
     """Active roster; optionally include month_hours for the given calendar month."""
-    stmt = select(Employee).where(Employee.is_active.is_(True)).order_by(Employee.name)
+    stmt = select(Employee).where(Employee.is_active.is_(True)).order_by(
+        Employee.sort_order, Employee.created_at
+    )
     if q is not None and (needle := q.strip()):
         stmt = stmt.where(Employee.name.contains(needle))
     employees = list(db.scalars(stmt).all())
@@ -166,7 +171,13 @@ def list_employees(
 
     rows: list[dict] = []
     for emp in employees:
-        row = {"id": emp.id, "name": emp.name}
+        row = {
+            "id": emp.id,
+            "name": emp.name,
+            "export_name": emp.export_name,
+            "position": emp.position,
+            "sort_order": emp.sort_order,
+        }
         if include_month_stats:
             total = hours_map.get(emp.id, Decimal("0"))
             row["month_hours"] = f"{total.quantize(Decimal('0.1'))}"
@@ -184,3 +195,37 @@ def deactivate_employee(db: Session, employee_id: UUID) -> Employee:
     emp.is_active = False
     db.flush()
     return emp
+
+
+def update_employee(db: Session, employee_id: UUID, fields: dict) -> Employee:
+    emp = db.get(Employee, employee_id)
+    if emp is None:
+        raise KeyError("员工不存在")
+    for key in ("export_name", "position"):
+        if key not in fields:
+            continue
+        value = fields[key]
+        if value is None:
+            setattr(emp, key, None)
+            continue
+        cleaned = value.strip() if isinstance(value, str) else str(value)
+        if not cleaned:
+            setattr(emp, key, None)
+            continue
+        if len(cleaned) > 64:
+            label = "导出姓名" if key == "export_name" else "岗位"
+            raise ValueError(f"{label}最长 64 字")
+        setattr(emp, key, cleaned)
+    db.flush()
+    return emp
+
+
+def reorder_employees(db: Session, ids: list[UUID]) -> None:
+    active = list(db.scalars(select(Employee).where(Employee.is_active.is_(True))).all())
+    active_ids = {emp.id for emp in active}
+    if len(ids) != len(active_ids) or set(ids) != active_ids:
+        raise ValueError("排序名单与花名册不一致")
+    by_id = {emp.id: emp for emp in active}
+    for index, emp_id in enumerate(ids):
+        by_id[emp_id].sort_order = index
+    db.flush()

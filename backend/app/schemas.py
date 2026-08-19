@@ -99,8 +99,20 @@ class EmployeeOut(BaseModel):
 
     id: UUID
     name: str = Field(..., max_length=64)
+    export_name: str | None = None
+    position: str | None = None
+    sort_order: int = 0
     month_hours: str | None = None
     month_rest_days: int | None = None
+
+
+class EmployeeUpdate(BaseModel):
+    export_name: str | None = None
+    position: str | None = None
+
+
+class EmployeeReorderIn(BaseModel):
+    ids: list[UUID]
 
 
 class CalendarDayOut(BaseModel):

@@ -90,3 +90,26 @@ def test_delete_employee_is_soft(client):
     entries = client.get("/api/entries", params={"date": "2026-08-04"})
     assert len(entries.json()) == 1
     assert entries.json()[0]["employee_name"] == "张三"
+
+
+def test_patch_employee_export_fields_and_list_order(client):
+    a = client.post("/api/employees", json={"name": "苑菱"}).json()
+    b = client.post("/api/employees", json={"name": "晓玲"}).json()
+    r = client.patch(f"/api/employees/{a['id']}", json={
+        "export_name": "伍苑菱", "position": "店经理",
+    })
+    assert r.status_code == 200
+    assert r.json()["export_name"] == "伍苑菱"
+    assert r.json()["position"] == "店经理"
+    listed = client.get("/api/employees").json()
+    assert [e["name"] for e in listed] == ["苑菱", "晓玲"]
+    rr = client.put("/api/employees/reorder", json={"ids": [b["id"], a["id"]]})
+    assert rr.status_code == 204
+    listed = client.get("/api/employees").json()
+    assert [e["name"] for e in listed] == ["晓玲", "苑菱"]
+
+
+def test_patch_employee_rejects_overlong(client):
+    emp = client.post("/api/employees", json={"name": "苑菱"}).json()
+    r = client.patch(f"/api/employees/{emp['id']}", json={"position": "岗" * 65})
+    assert r.status_code == 400

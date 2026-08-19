@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import EmployeeCreate, EmployeeImportIn, EmployeeImportOut, EmployeeOut
+from app.schemas import (
+    EmployeeCreate,
+    EmployeeImportIn,
+    EmployeeImportOut,
+    EmployeeOut,
+    EmployeeReorderIn,
+    EmployeeUpdate,
+)
 from app.services import employees as employees_service
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -55,6 +62,28 @@ def import_employees(payload: EmployeeImportIn, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
     return EmployeeImportOut.model_validate(result)
+
+
+@router.put("/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_employees(payload: EmployeeReorderIn, db: Session = Depends(get_db)):
+    try:
+        employees_service.reorder_employees(db, payload.ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+def patch_employee(employee_id: UUID, payload: EmployeeUpdate, db: Session = Depends(get_db)):
+    fields = payload.model_dump(exclude_unset=True)
+    try:
+        emp = employees_service.update_employee(db, employee_id, fields)
+    except KeyError as exc:
+        detail = str(exc.args[0]) if exc.args else "员工不存在"
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return EmployeeOut.model_validate(emp)
 
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
