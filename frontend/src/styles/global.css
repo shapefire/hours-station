@@ -2128,6 +2128,69 @@ textarea {
   padding-right: 0.15rem;
 }
 
+.settings-modal__list--roster.settings-modal__list--dragging {
+  cursor: grabbing;
+}
+
+.settings-modal__list--roster .settings-modal__item {
+  flex-wrap: wrap;
+  position: relative;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.settings-modal__item--dragging {
+  opacity: 0.62;
+  transform: scale(0.985);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.settings-modal__item--drop-before::before,
+.settings-modal__item--drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.65rem;
+  right: 0.65rem;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 2px 10px color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+  z-index: 2;
+  animation: roster-drop-line-in 0.15s ease;
+}
+
+.settings-modal__item--drop-before::before {
+  top: -2px;
+}
+
+.settings-modal__item--drop-after::after {
+  bottom: -2px;
+}
+
+@keyframes roster-drop-line-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 .settings-modal__item-check {
   display: flex;
   align-items: center;
@@ -2153,16 +2216,26 @@ textarea {
   user-select: none;
   color: var(--muted);
   letter-spacing: -0.14em;
-  padding: 0.15rem 0.05rem;
+  padding: 0.35rem 0.2rem;
   line-height: 1;
+  border-radius: var(--radius-group);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
 }
 
-.roster-drag:active {
+.roster-drag:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.roster-drag:active,
+.settings-modal__list--dragging .roster-drag {
   cursor: grabbing;
-}
-
-.settings-modal__list--roster .settings-modal__item {
-  flex-wrap: wrap;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  transform: scale(1.08);
 }
 
 .settings-modal__list--roster .settings-modal__item-check {

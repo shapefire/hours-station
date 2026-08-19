@@ -33,6 +33,8 @@ export default function RosterSettingsPanel() {
   rosterRef.current = roster
   const dragIdRef = useRef(null)
   const orderBeforeDragRef = useRef('')
+  const [draggingId, setDraggingId] = useState(null)
+  const [dropHint, setDropHint] = useState(null)
 
   function loadRoster() {
     setLoading(true)
@@ -192,12 +194,11 @@ export default function RosterSettingsPanel() {
     }
   }
 
-  function moveEmployee(fromId, toId) {
-    if (!fromId || !toId || fromId === toId) return
+  function moveEmployeeToIndex(fromId, toIndex) {
+    if (!fromId || toIndex < 0) return
     setRoster((prev) => {
       const fromIndex = prev.findIndex((emp) => emp.id === fromId)
-      const toIndex = prev.findIndex((emp) => emp.id === toId)
-      if (fromIndex < 0 || toIndex < 0) return prev
+      if (fromIndex < 0 || fromIndex === toIndex || toIndex >= prev.length) return prev
       const next = [...prev]
       const [moved] = next.splice(fromIndex, 1)
       next.splice(toIndex, 0, moved)
@@ -206,24 +207,49 @@ export default function RosterSettingsPanel() {
     })
   }
 
+  function getDropTargetIndex(items, draggedId, hoverId, insertBefore) {
+    const fromIndex = items.findIndex((emp) => emp.id === draggedId)
+    const hoverIndex = items.findIndex((emp) => emp.id === hoverId)
+    if (fromIndex < 0 || hoverIndex < 0) return fromIndex
+    let toIndex = insertBefore ? hoverIndex : hoverIndex + 1
+    if (fromIndex < toIndex) toIndex -= 1
+    return toIndex
+  }
+
   function handleDragStart(event, id) {
     dragIdRef.current = id
+    setDraggingId(id)
+    setDropHint(null)
     orderBeforeDragRef.current = rosterRef.current.map((emp) => emp.id).join(',')
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', id)
   }
 
-  function handleDragOver(event) {
+  function handleDragOver(event, id) {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
+    const dragged = dragIdRef.current
+    if (!dragged || dragged === id) return
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    const insertBefore = event.clientY < rect.top + rect.height / 2
+    setDropHint({ id, position: insertBefore ? 'before' : 'after' })
+
+    const items = rosterRef.current
+    const fromIndex = items.findIndex((emp) => emp.id === dragged)
+    const toIndex = getDropTargetIndex(items, dragged, id, insertBefore)
+    if (fromIndex !== toIndex) {
+      moveEmployeeToIndex(dragged, toIndex)
+    }
   }
 
-  function handleDrop(event, id) {
+  function handleDrop(event) {
     event.preventDefault()
-    moveEmployee(dragIdRef.current, id)
   }
 
   async function handleDragEnd() {
+    setDraggingId(null)
+    setDropHint(null)
     const dragged = dragIdRef.current
     dragIdRef.current = null
     if (!dragged || busy) return
@@ -283,13 +309,29 @@ export default function RosterSettingsPanel() {
         </label>
       ) : null}
 
-      <ul className="settings-modal__list settings-modal__list--roster">
-        {roster.map((emp) => (
+      <ul
+        className={`settings-modal__list settings-modal__list--roster${draggingId ? ' settings-modal__list--dragging' : ''}`}
+      >
+        {roster.map((emp) => {
+          const itemClassName = [
+            'settings-modal__item',
+            draggingId === emp.id && 'settings-modal__item--dragging',
+            dropHint?.id === emp.id &&
+              dropHint.position === 'before' &&
+              'settings-modal__item--drop-before',
+            dropHint?.id === emp.id &&
+              dropHint.position === 'after' &&
+              'settings-modal__item--drop-after',
+          ]
+            .filter(Boolean)
+            .join(' ')
+
+          return (
           <li
             key={emp.id}
-            className="settings-modal__item"
-            onDragOver={handleDragOver}
-            onDrop={(event) => handleDrop(event, emp.id)}
+            className={itemClassName}
+            onDragOver={(event) => handleDragOver(event, emp.id)}
+            onDrop={handleDrop}
           >
             <span
               className="roster-drag"
@@ -341,7 +383,8 @@ export default function RosterSettingsPanel() {
               删除
             </button>
           </li>
-        ))}
+          )
+        })}
       </ul>
 
       {editorOpen
