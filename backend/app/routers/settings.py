@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.schemas import HoursRuleIn, HoursRuleOut, NotePresetCreate, NotePresetOut
+from app.schemas import (
+    HoursRuleIn,
+    HoursRuleOut,
+    NotePresetCreate,
+    NotePresetOut,
+    StoreSettingsIn,
+    StoreSettingsOut,
+)
 from app.services import settings as settings_service
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -52,3 +59,17 @@ def update_hours_rule(payload: HoursRuleIn, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
     return HoursRuleOut.model_validate(data)
+
+
+@router.get("/store", response_model=StoreSettingsOut)
+def read_store_name(db: Session = Depends(get_db)):
+    return StoreSettingsOut(store_name=settings_service.get_store_name(db))
+
+
+@router.put("/store", response_model=StoreSettingsOut)
+def update_store_name(payload: StoreSettingsIn, db: Session = Depends(get_db)):
+    try:
+        store_name = settings_service.put_store_name(db, payload.store_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return StoreSettingsOut(store_name=store_name)

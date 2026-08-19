@@ -67,3 +67,9 @@ class HoursRuleTier(Base):
     deduct_hours: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StoreSettings(Base):
+    __tablename__ = "store_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    store_name: Mapped[str] = mapped_column(String(64), nullable=False)

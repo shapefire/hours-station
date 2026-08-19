@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
-from app.models import DayNote, Employee, NotePreset, WorkEntry, HoursRuleTier  # noqa: F401
+from app.models import DayNote, Employee, NotePreset, StoreSettings, WorkEntry, HoursRuleTier  # noqa: F401
 from app.main import app
 from app.services.hours_rule_cache import clear_cached_tiers_for_tests, load_hours_rule_cache
 

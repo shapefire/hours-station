@@ -192,6 +192,14 @@ class HoursRuleOut(BaseModel):
     tiers: list[HoursRuleTierPayload]
 
 
+class StoreSettingsIn(BaseModel):
+    store_name: str
+
+
+class StoreSettingsOut(BaseModel):
+    store_name: str
+
+
 class DayNotePut(BaseModel):
     note: str
 

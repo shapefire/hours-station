@@ -5,8 +5,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import HoursRuleTier, NotePreset
+from app.models import HoursRuleTier, NotePreset, StoreSettings
 from app.services.hours_rule_cache import get_cached_tiers, set_cached_tiers
+
+DEFAULT_STORE_NAME = "东圃地铁站"
+STORE_SETTINGS_ID = 1
+MAX_STORE_NAME_LEN = 64
 
 
 def _format_one_decimal(value: Decimal) -> str:
@@ -107,3 +111,28 @@ def delete_note_preset(db: Session, preset_id: UUID) -> None:
         raise KeyError("备注预设不存在")
     db.delete(preset)
     db.flush()
+
+
+def get_store_name(db: Session) -> str:
+    row = db.get(StoreSettings, STORE_SETTINGS_ID)
+    if row is None:
+        row = StoreSettings(id=STORE_SETTINGS_ID, store_name=DEFAULT_STORE_NAME)
+        db.add(row)
+        db.flush()
+    return row.store_name
+
+
+def put_store_name(db: Session, name: str) -> str:
+    cleaned = (name or "").strip()
+    if not cleaned:
+        raise ValueError("店名不能为空")
+    if len(cleaned) > MAX_STORE_NAME_LEN:
+        raise ValueError("店名最长 64 字")
+    row = db.get(StoreSettings, STORE_SETTINGS_ID)
+    if row is None:
+        row = StoreSettings(id=STORE_SETTINGS_ID, store_name=cleaned)
+        db.add(row)
+    else:
+        row.store_name = cleaned
+    db.flush()
+    return row.store_name
