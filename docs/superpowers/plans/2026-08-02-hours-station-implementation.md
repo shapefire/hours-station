@@ -12,7 +12,7 @@
 **Tech Stack:** React 18 + Vite + React Router；FastAPI + SQLAlchemy 2 + Alembic + psycopg；PostgreSQL 16；pytest；Docker Compose（仅 Postgres）。
 
 **Spec:** `docs/superpowers/specs/2026-08-02-hours-station-design.md`  
-**Code root:** `.worktrees/hours-station/`（或仓库内等价 frontend/backend 布局）
+**Code root:** 仓库根目录（`frontend/`、`backend/`）
 
 ## Global Constraints
 

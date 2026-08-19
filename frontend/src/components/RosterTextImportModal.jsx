@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/client.js'
 import TimeField from './TimeField.jsx'
@@ -59,25 +59,59 @@ function recomputeEntryErrors(entry) {
   return errors
 }
 
-function normalizePreviewDays(days) {
+function normalizeEntry(entry) {
+  const next = {
+    name: entry.name || '',
+    status: entry.status || 'on_duty',
+    start_time: toTimeValue(entry.start_time),
+    end_time: toTimeValue(entry.end_time),
+    ot_start_time: toTimeValue(entry.ot_start_time),
+    ot_end_time: toTimeValue(entry.ot_end_time),
+    is_trial: !!entry.is_trial,
+    skip_deduction: !!entry.skip_deduction,
+    note: entry.note || '',
+  }
+  return { ...next, errors: recomputeEntryErrors(next) }
+}
+
+function normalizePreviewDays(days, previousDays) {
+  const prevByDate = new Map()
+  if (previousDays) {
+    for (const day of previousDays) {
+      prevByDate.set(day.work_date, day)
+    }
+  }
+
   return (Array.isArray(days) ? days : []).map((day) => {
-    const entries = (day.entries || []).map((entry) => {
-      const next = {
-        name: entry.name || '',
-        status: entry.status || 'on_duty',
-        start_time: toTimeValue(entry.start_time),
-        end_time: toTimeValue(entry.end_time),
-        ot_start_time: toTimeValue(entry.ot_start_time),
-        ot_end_time: toTimeValue(entry.ot_end_time),
-        is_trial: !!entry.is_trial,
-        skip_deduction: !!entry.skip_deduction,
-        note: entry.note || '',
+    const prevDay = prevByDate.get(day.work_date)
+    const prevEntryMap = new Map()
+    if (prevDay) {
+      for (const entry of prevDay.entries) {
+        prevEntryMap.set(entry.name, entry)
       }
-      return { ...next, errors: recomputeEntryErrors(next) }
+    }
+
+    const entries = (day.entries || []).map((entry) => {
+      const parsed = normalizeEntry(entry)
+      const prev = prevEntryMap.get(parsed.name)
+      if (!prev) return parsed
+
+      const merged = { ...parsed }
+      if (!parsed.start_time && prev.start_time) merged.start_time = prev.start_time
+      if (!parsed.end_time && prev.end_time) merged.end_time = prev.end_time
+      if (!parsed.ot_start_time && prev.ot_start_time) merged.ot_start_time = prev.ot_start_time
+      if (!parsed.ot_end_time && prev.ot_end_time) merged.ot_end_time = prev.ot_end_time
+      if (parsed.status === 'on_duty' && prev.status !== 'on_duty') merged.status = prev.status
+      if (!parsed.is_trial && prev.is_trial) merged.is_trial = prev.is_trial
+      if (!parsed.skip_deduction && prev.skip_deduction) merged.skip_deduction = prev.skip_deduction
+      if (!parsed.note && prev.note) merged.note = prev.note
+      merged.errors = recomputeEntryErrors(merged)
+      return merged
     })
+
     return {
       work_date: day.work_date,
-      day_note: day.day_note ?? '',
+      day_note: prevDay ? prevDay.day_note : (day.day_note ?? ''),
       original_day_note: day.day_note ?? null,
       entries,
       errors: Array.isArray(day.errors) ? day.errors : [],
@@ -138,6 +172,8 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
   const openRef = useRef(open)
   const parseRequestIdRef = useRef(0)
   const parsingRef = useRef(false)
+  const daySectionRefs = useRef(new Map())
+  const unparsedRef = useRef(null)
   const [phase, setPhase] = useState('edit_text')
   const [text, setText] = useState('')
   const [days, setDays] = useState([])
@@ -191,6 +227,30 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
     pasteRef.current?.focus()
   }, [open, phase])
 
+  const daySectionRef = useCallback((workDate) => (el) => {
+    if (el) daySectionRefs.current.set(workDate, el)
+    else daySectionRefs.current.delete(workDate)
+  }, [])
+
+  function scrollToDay(workDate) {
+    daySectionRefs.current.get(workDate)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function scrollToUnparsed() {
+    unparsedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const errorDays = days.filter(
+    (day) => (day.errors && day.errors.length > 0) || day.entries.some((e) => e.errors.length > 0),
+  )
+  const totalErrors = errorDays.reduce(
+    (sum, day) =>
+      sum +
+      (day.errors ? day.errors.length : 0) +
+      day.entries.reduce((s, e) => s + e.errors.length, 0),
+    0,
+  )
+
   if (!open) return null
 
   function handleBackdropClick() {
@@ -210,7 +270,7 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
         year,
       })
       if (requestId !== parseRequestIdRef.current || !openRef.current) return
-      setDays(normalizePreviewDays(result?.days))
+      setDays((prev) => normalizePreviewDays(result?.days, prev))
       setUnparsedLines(Array.isArray(result?.unparsed_lines) ? result.unparsed_lines : [])
       setPhase('preview')
     } catch (err) {
@@ -319,12 +379,43 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
             </label>
           ) : (
             <div className="roster-import-modal__preview">
+              {phase === 'preview' && (totalErrors > 0 || unparsedLines.length > 0) ? (
+                <div className="roster-import-summary" role="alert">
+                  {totalErrors > 0 ? (
+                    <span className="roster-import-summary__errors">
+                      {totalErrors}处错误：
+                      {errorDays.map((day, i) => (
+                        <span key={day.work_date}>
+                          {i > 0 ? '、' : ''}
+                          <button
+                            type="button"
+                            className="roster-import-summary__link"
+                            onClick={() => scrollToDay(day.work_date)}
+                          >
+                            {formatDisplayDate(day.work_date)}
+                          </button>
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                  {unparsedLines.length > 0 ? (
+                    <button
+                      type="button"
+                      className="roster-import-summary__link"
+                      onClick={scrollToUnparsed}
+                    >
+                      {unparsedLines.length}行未识别
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
               {days.length === 0 ? (
                 <p className="roster-import-modal__empty">没有解析出可导入的日期。</p>
               ) : null}
 
               {days.map((day, dayIndex) => (
-                <section key={day.work_date || dayIndex} className="roster-import-day">
+                <section key={day.work_date || dayIndex} className="roster-import-day" ref={daySectionRef(day.work_date)}>
                   <div className="roster-import-day__head">
                     <h3 className="roster-import-day__title">{formatDisplayDate(day.work_date)}</h3>
                     <label className="roster-import-day__note">
@@ -492,7 +583,7 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
               ))}
 
               {unparsedLines.length > 0 ? (
-                <section className="roster-import-unparsed">
+                <section className="roster-import-unparsed" ref={unparsedRef}>
                   <h3 className="roster-import-day__title">未识别的行</h3>
                   <p className="roster-import-unparsed__hint">以下行不会提交。</p>
                   <ul>

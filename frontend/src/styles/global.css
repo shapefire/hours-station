@@ -1382,6 +1382,32 @@ textarea {
   gap: 1.1rem;
 }
 
+.roster-import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #fef3f2;
+  border-left: 3px solid #d44;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #8b2e2a;
+  line-height: 1.5;
+}
+
+.roster-import-summary__link {
+  all: unset;
+  cursor: pointer;
+  text-decoration: underline;
+  color: #8b2e2a;
+  font-weight: 500;
+}
+
+.roster-import-summary__link:hover {
+  color: #c0392b;
+}
+
 .roster-import-modal__empty {
   margin: 0;
   color: var(--muted);
