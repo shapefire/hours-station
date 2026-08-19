@@ -186,8 +186,9 @@ export default function RosterSettingsPanel() {
         return next
       })
     } catch (err) {
-      setError(err?.message || '保存失败，请稍后重试')
+      const message = err?.message || '保存失败，请稍后重试'
       await loadRoster()
+      setError(message)
     }
   }
 
@@ -238,8 +239,9 @@ export default function RosterSettingsPanel() {
       await api.put('/api/employees/reorder', { ids })
       notifyRosterChanged()
     } catch (err) {
-      setError(err?.message || '排序失败，请稍后重试')
+      const message = err?.message || '排序失败，请稍后重试'
       await loadRoster()
+      setError(message)
     } finally {
       setBusy(false)
     }
