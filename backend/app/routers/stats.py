@@ -1,11 +1,14 @@
+from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas import StatsEmployeeDaysOut, StatsMonthlyOut
 from app.services import stats as stats_service
+from app.services.hr_excel_export import build_export_workbook, export_filename
+from app.services.settings import get_store_name
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
@@ -17,6 +20,23 @@ def get_monthly_stats(
     db: Session = Depends(get_db),
 ):
     return stats_service.monthly_stats(db, year=year, month=month)
+
+
+@router.get("/monthly/export")
+def export_monthly_hr_excel(
+    year: int = Query(..., ge=1),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    raw = build_export_workbook(db, year, month)
+    filename = export_filename(get_store_name(db), month)
+    encoded = quote(filename)
+    disposition = f'attachment; filename="{encoded}"; filename*=UTF-8\'\'{encoded}'
+    return Response(
+        content=raw,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.get("/monthly/{employee_id}/days", response_model=StatsEmployeeDaysOut)
