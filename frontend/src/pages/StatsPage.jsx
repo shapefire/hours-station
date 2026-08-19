@@ -20,6 +20,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [tableKey, setTableKey] = useState(0)
+  const [exporting, setExporting] = useState(false)
   const fetchSeqRef = useRef(0)
 
   const refreshStats = useCallback(async () => {
@@ -61,6 +62,22 @@ export default function StatsPage() {
     setTableKey((k) => k + 1)
   }
 
+  async function handleExport() {
+    if (exporting) return
+    setExporting(true)
+    setError(null)
+    try {
+      await api.download(
+        `/api/stats/monthly/export?year=${viewYear}&month=${viewMonth}`,
+        `${viewYear}年${viewMonth}月.xlsx`,
+      )
+    } catch (err) {
+      setError(err.message || '导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const people = stats?.people ?? []
 
   return (
@@ -85,6 +102,14 @@ export default function StatsPage() {
             aria-label="下一月"
           >
             ›
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm stats-page__export"
+            disabled={exporting}
+            onClick={handleExport}
+          >
+            导出 Excel
           </button>
         </div>
         <p className="stats-page__subtitle">管理者统计看板</p>

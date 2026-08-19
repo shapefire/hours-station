@@ -55,12 +55,58 @@ async function request(method, path, body) {
   return response.text()
 }
 
+/** Prefer RFC 5987 `filename*=UTF-8''`, then `filename=`; both may be percent-encoded. */
+export function parseContentDispositionFilename(header) {
+  if (!header) return null
+  const star = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(header)
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"(.*)"$/, '$1'))
+    } catch {
+      // fall through to filename=
+    }
+  }
+  const plain = /(?:^|;)\s*filename\s*=\s*(?!\*)("?)([^";]+)\1/i.exec(header)
+  if (plain?.[2]) {
+    const raw = plain[2].trim()
+    try {
+      return decodeURIComponent(raw)
+    } catch {
+      return raw
+    }
+  }
+  return null
+}
+
+async function download(path, fallbackFilename) {
+  const response = await fetch(path)
+  if (!response.ok) {
+    await parseError(response)
+  }
+  const blob = await response.blob()
+  const filename =
+    parseContentDispositionFilename(response.headers.get('Content-Disposition')) ||
+    fallbackFilename
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   patch: (path, body) => request('PATCH', path, body),
   delete: (path) => request('DELETE', path),
+  download,
 }
 
 export default api

@@ -2147,6 +2147,46 @@ textarea {
   font-size: 0.98rem;
 }
 
+.roster-drag {
+  flex: 0 0 auto;
+  cursor: grab;
+  user-select: none;
+  color: var(--muted);
+  letter-spacing: -0.14em;
+  padding: 0.15rem 0.05rem;
+  line-height: 1;
+}
+
+.roster-drag:active {
+  cursor: grabbing;
+}
+
+.settings-modal__list--roster .settings-modal__item {
+  flex-wrap: wrap;
+}
+
+.settings-modal__list--roster .settings-modal__item-check {
+  flex: 1 1 6.5rem;
+}
+
+.roster-row__field {
+  flex: 1 1 5.5rem;
+  min-width: 5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-group);
+  border: 1px solid var(--separator);
+  background: var(--bg-app);
+  color: var(--label);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.roster-row__field:disabled {
+  opacity: 0.7;
+  background: var(--fill);
+  cursor: not-allowed;
+}
+
 .settings-modal__add {
   display: flex;
   gap: 0.55rem;
@@ -2225,6 +2265,10 @@ textarea {
   flex-direction: column;
   gap: 0.85rem;
   max-width: 16rem;
+}
+
+.settings-modal__hours-form + .settings-modal__hint {
+  margin-top: 1.15rem;
 }
 
 .settings-modal__field {
@@ -2470,6 +2514,10 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.stats-page__export {
+  margin-left: 0.65rem;
 }
 
 .stats-page__title {

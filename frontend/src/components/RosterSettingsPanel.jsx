@@ -29,6 +29,10 @@ export default function RosterSettingsPanel() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [importText, setImportText] = useState('')
   const [editorError, setEditorError] = useState(null)
+  const rosterRef = useRef(roster)
+  rosterRef.current = roster
+  const dragIdRef = useRef(null)
+  const orderBeforeDragRef = useRef('')
 
   function loadRoster() {
     setLoading(true)
@@ -38,11 +42,13 @@ export default function RosterSettingsPanel() {
       .then((rows) => {
         const list = Array.isArray(rows) ? rows : []
         setRoster(list)
+        rosterRef.current = list
         const ids = new Set(list.map((emp) => emp.id))
         setSelected((prev) => new Set([...prev].filter((id) => ids.has(id))))
       })
       .catch(() => {
         setRoster([])
+        rosterRef.current = []
         setError('加载失败，请稍后重试')
       })
       .finally(() => setLoading(false))
@@ -155,6 +161,90 @@ export default function RosterSettingsPanel() {
     setSelected(new Set(roster.map((emp) => emp.id)))
   }
 
+  function updateLocal(id, field, value) {
+    setRoster((prev) => {
+      const next = prev.map((emp) => (emp.id === id ? { ...emp, [field]: value } : emp))
+      rosterRef.current = next
+      return next
+    })
+  }
+
+  async function savePatch(id, field) {
+    const emp = rosterRef.current.find((row) => row.id === id)
+    if (!emp) return
+    const raw = emp[field]
+    const value = typeof raw === 'string' ? raw.trim() : raw
+    try {
+      const body = await api.patch(`/api/employees/${id}`, {
+        [field]: value || null,
+      })
+      setRoster((prev) => {
+        const next = prev.map((row) =>
+          row.id === id ? { ...row, [field]: body[field] } : row,
+        )
+        rosterRef.current = next
+        return next
+      })
+    } catch (err) {
+      setError(err?.message || '保存失败，请稍后重试')
+      await loadRoster()
+    }
+  }
+
+  function moveEmployee(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return
+    setRoster((prev) => {
+      const fromIndex = prev.findIndex((emp) => emp.id === fromId)
+      const toIndex = prev.findIndex((emp) => emp.id === toId)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      rosterRef.current = next
+      return next
+    })
+  }
+
+  function handleDragStart(event, id) {
+    if (event.target.closest('input, button, label')) {
+      event.preventDefault()
+      return
+    }
+    dragIdRef.current = id
+    orderBeforeDragRef.current = rosterRef.current.map((emp) => emp.id).join(',')
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', id)
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDrop(event, id) {
+    event.preventDefault()
+    moveEmployee(dragIdRef.current, id)
+  }
+
+  async function handleDragEnd() {
+    const dragged = dragIdRef.current
+    dragIdRef.current = null
+    if (!dragged || busy) return
+    const ids = rosterRef.current.map((emp) => emp.id)
+    if (ids.join(',') === orderBeforeDragRef.current) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.put('/api/employees/reorder', { ids })
+      notifyRosterChanged()
+    } catch (err) {
+      setError(err?.message || '排序失败，请稍后重试')
+      await loadRoster()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const previewNames = splitRosterText(importText)
   const importable = previewNames.length > 0
   const allSelected = roster.length > 0 && selected.size === roster.length
@@ -197,7 +287,18 @@ export default function RosterSettingsPanel() {
 
       <ul className="settings-modal__list settings-modal__list--roster">
         {roster.map((emp) => (
-          <li key={emp.id} className="settings-modal__item">
+          <li
+            key={emp.id}
+            className="settings-modal__item"
+            draggable={!busy}
+            onDragStart={(event) => handleDragStart(event, emp.id)}
+            onDragOver={handleDragOver}
+            onDrop={(event) => handleDrop(event, emp.id)}
+            onDragEnd={handleDragEnd}
+          >
+            <span className="roster-drag" aria-hidden>
+              ⋮⋮
+            </span>
             <label className="settings-modal__item-check">
               <input
                 type="checkbox"
@@ -208,6 +309,28 @@ export default function RosterSettingsPanel() {
               />
               <span className="settings-modal__item-text">{emp.name}</span>
             </label>
+            <input
+              type="text"
+              className="roster-row__field"
+              aria-label={`${emp.name} 岗位`}
+              value={emp.position || ''}
+              disabled={busy}
+              maxLength={64}
+              placeholder="岗位"
+              onChange={(e) => updateLocal(emp.id, 'position', e.target.value)}
+              onBlur={() => savePatch(emp.id, 'position')}
+            />
+            <input
+              type="text"
+              className="roster-row__field"
+              aria-label={`${emp.name} 导出姓名`}
+              value={emp.export_name || ''}
+              disabled={busy}
+              maxLength={64}
+              placeholder="导出全名"
+              onChange={(e) => updateLocal(emp.id, 'export_name', e.target.value)}
+              onBlur={() => savePatch(emp.id, 'export_name')}
+            />
             <button
               type="button"
               className="btn btn--ghost btn--sm"

@@ -22,6 +22,11 @@ export default function SettingsModal({ open, onClose }) {
   const [hoursBusy, setHoursBusy] = useState(false)
   const [hoursError, setHoursError] = useState(null)
   const [hoursSaved, setHoursSaved] = useState(false)
+  const [storeName, setStoreName] = useState('')
+  const [storeLoading, setStoreLoading] = useState(false)
+  const [storeBusy, setStoreBusy] = useState(false)
+  const [storeError, setStoreError] = useState(null)
+  const [storeSaved, setStoreSaved] = useState(false)
 
   function loadHoursRuleForm() {
     setHoursLoading(true)
@@ -36,6 +41,19 @@ export default function SettingsModal({ open, onClose }) {
       })
       .catch(() => setHoursError('加载失败，请稍后重试'))
       .finally(() => setHoursLoading(false))
+  }
+
+  function loadStoreName() {
+    setStoreLoading(true)
+    setStoreError(null)
+    setStoreSaved(false)
+    return api
+      .get('/api/settings/store')
+      .then((body) => {
+        setStoreName(body?.store_name ?? '')
+      })
+      .catch(() => setStoreError('加载失败，请稍后重试'))
+      .finally(() => setStoreLoading(false))
   }
 
   useEffect(() => {
@@ -56,9 +74,28 @@ export default function SettingsModal({ open, onClose }) {
   useEffect(() => {
     if (!open || section !== 'hours-rule') return undefined
     loadHoursRuleForm()
+    loadStoreName()
   }, [open, section])
 
   if (!open) return null
+
+  async function handleSaveStore(event) {
+    event.preventDefault()
+    if (storeBusy || storeLoading) return
+    setStoreBusy(true)
+    setStoreError(null)
+    setStoreSaved(false)
+    try {
+      const body = await api.put('/api/settings/store', { store_name: storeName })
+      setStoreName(body.store_name)
+      setStoreSaved(true)
+    } catch (err) {
+      const detail = err?.message
+      setStoreError(typeof detail === 'string' ? detail : '保存失败，请稍后重试')
+    } finally {
+      setStoreBusy(false)
+    }
+  }
 
   async function handleSaveHoursRule(event) {
     event.preventDefault()
@@ -138,6 +175,32 @@ export default function SettingsModal({ open, onClose }) {
             {section === 'hours-rule' ? (
               <section className="settings-modal__section" aria-label="工时计算">
                 <h3 className="settings-modal__section-title">工时计算</h3>
+                <form className="settings-modal__hours-form" onSubmit={handleSaveStore}>
+                  <label className="settings-modal__field">
+                    <span>店名</span>
+                    <input
+                      type="text"
+                      maxLength={64}
+                      value={storeName}
+                      disabled={storeBusy || storeLoading}
+                      onChange={(e) => {
+                        setStoreSaved(false)
+                        setStoreName(e.target.value)
+                      }}
+                      required
+                    />
+                  </label>
+                  {storeLoading ? <p className="settings-modal__status">加载中…</p> : null}
+                  {storeError ? <p className="settings-modal__error">{storeError}</p> : null}
+                  {storeSaved ? <p className="settings-modal__status">已保存</p> : null}
+                  <button
+                    type="submit"
+                    className="btn btn--primary btn--sm"
+                    disabled={storeBusy || storeLoading}
+                  >
+                    保存店名
+                  </button>
+                </form>
                 <p className="settings-modal__hint">
                   毛工时达到或超过该阈值时扣减；扣减为 0 表示不扣。
                 </p>
