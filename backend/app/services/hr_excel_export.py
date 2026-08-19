@@ -8,6 +8,7 @@ from datetime import date
 from decimal import Decimal
 from io import BytesIO
 from collections import defaultdict
+from zipfile import ZipFile
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
@@ -39,6 +40,41 @@ from app.services.hr_excel_layout import (
 from app.services.settings import get_store_name
 
 WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+_CELL_IMAGE_PARTS = [
+    "xl/cellimages.xml",
+    "xl/_rels/cellimages.xml.rels",
+    "xl/media/image1.png",
+]
+_CELL_IMAGE_REL_TYPE = "http://www.wps.cn/officeDocument/2020/cellImage"
+_CELL_IMAGE_REL_TAG = (
+    '<Relationship Id="rId_cellimg" '
+    f'Type="{_CELL_IMAGE_REL_TYPE}" '
+    'Target="cellimages.xml"/>'
+)
+
+
+def _patch_cell_images(data: bytes) -> bytes:
+    """Re-inject WPS DISPIMG cell-image parts that openpyxl drops on save."""
+    template_zip = ZipFile(TEMPLATE_PATH)
+    out_buf = BytesIO()
+    with ZipFile(BytesIO(data), "r") as src, ZipFile(out_buf, "w") as dst:
+        for item in src.infolist():
+            content = src.read(item.filename)
+            if item.filename == "xl/_rels/workbook.xml.rels":
+                # Ensure cellimages relationship exists
+                text = content.decode("utf-8")
+                if _CELL_IMAGE_REL_TYPE not in text:
+                    text = text.replace(
+                        "</Relationships>",
+                        _CELL_IMAGE_REL_TAG + "</Relationships>",
+                    )
+                    content = text.encode("utf-8")
+            dst.writestr(item, content)
+        for part in _CELL_IMAGE_PARTS:
+            if part not in [i.filename for i in src.infolist()]:
+                dst.writestr(part, template_zip.read(part))
+    return out_buf.getvalue()
 
 
 def export_filename(store_name: str, month: int) -> str:
@@ -200,7 +236,7 @@ def build_export_workbook(db: Session, year: int, month: int) -> bytes:
 
     buf = BytesIO()
     wb.save(buf)
-    return buf.getvalue()
+    return _patch_cell_images(buf.getvalue())
 
 
 def _fill_person(
