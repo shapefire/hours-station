@@ -39,7 +39,6 @@ from app.services.hr_excel_layout import (
     TEMPLATE_PERSON_SLOTS,
     TOTAL_HEADER_COL,
     TRIPLE_PAY_COL,
-    TRIPLE_PAY_COUNT_VALUE,
     WEEKDAY_ROW,
 )
 from app.services.settings import get_store_name
@@ -132,8 +131,14 @@ def _rate_formula(off_r: int) -> str:
     return f"=COUNTIF(E{off_r}:AI{off_r},{RATE_COUNT_VALUE})"
 
 
-def _triple_pay_formula(on_r: int, off_r: int) -> str:
-    return f"=COUNTIF(E{on_r}:AI{off_r},{TRIPLE_PAY_COUNT_VALUE})"
+def _clear_triple_pay_stat(ws: Worksheet, on_r: int, off_r: int, person_index: int) -> None:
+    """导出不再统计三薪；保留第一位人员 on 行的「三薪」表头文字。"""
+    col = TRIPLE_PAY_COL + 1
+    if person_index == 0:
+        _set_cell(ws, off_r, col, None)
+        return
+    _set_cell(ws, on_r, col, None)
+    _set_cell(ws, off_r, col, None)
 
 
 def _ensure_aj_merge(ws: Worksheet, on_r: int, off_r: int) -> None:
@@ -151,7 +156,7 @@ def _ensure_aj_merge(ws: Worksheet, on_r: int, off_r: int) -> None:
 
 
 def _ensure_person_summary(ws: Worksheet, person_index: int) -> None:
-    """超出带公式槽位时，补写總計/Rate/三薪公式并合并 AJ。"""
+    """超出带公式槽位时，补写總計/Rate 公式并合并 AJ。"""
     if person_index < TEMPLATE_PERSON_SLOTS:
         return
 
@@ -162,7 +167,7 @@ def _ensure_person_summary(ws: Worksheet, person_index: int) -> None:
     _ensure_aj_merge(ws, on_r, off_r)
     _set_cell(ws, on_r, TOTAL_HEADER_COL + 1, _total_formula(on_r, off_r))
     _set_cell(ws, on_r, RATE_COL + 1, _rate_formula(off_r))
-    _set_cell(ws, on_r, TRIPLE_PAY_COL + 1, _triple_pay_formula(on_r, off_r))
+    _clear_triple_pay_stat(ws, on_r, off_r, person_index)
 
 
 def _ensure_person_rows(ws: Worksheet, person_index: int) -> int:
@@ -220,6 +225,7 @@ def _clear_person_slot(
         # 当 person_index==0 且 r==on_r 时，跳过清空以避免覆盖标题。
         if not (person_index == 0 and r == on_r):
             _set_cell(ws, r, SUPPORT_VALUE_COL + 1, None)
+    _clear_triple_pay_stat(ws, on_r, off_r, person_index)
 
 
 def _write_day_headers(ws: Worksheet, year: int, month: int) -> int:
@@ -335,3 +341,5 @@ def _fill_person(
         else:
             _set_cell(ws, on_r, support_col, None)
         _set_cell(ws, off_r, support_col, None)
+
+    _clear_triple_pay_stat(ws, on_r, off_r, index)

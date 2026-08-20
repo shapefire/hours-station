@@ -17,9 +17,8 @@ TOTAL_HEADER_COL = 35  # 「總計」→ openpyxl 列 AJ
 RATE_COL = 37  # 「Rate」→ openpyxl 列 AL
 TRIPLE_PAY_COL = 38  # 「三薪」→ openpyxl 列 AM
 
-# 模板下区 COUNTIF 口径（AL/AM 列）
+# 模板下区 COUNTIF 口径（AL 列）
 RATE_COUNT_VALUE = 22.5
-TRIPLE_PAY_COUNT_VALUE = 8.5
 
 # 人员区
 PERSON_START_ROW = 2

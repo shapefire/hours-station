@@ -211,7 +211,7 @@ def test_on_duty_short_shift_no_deduction_in_export_cells(client, db):
 
 
 def test_extra_person_beyond_template_slots_has_summary_formulas(client, db):
-    """超过模板 15 人槽位时，动态追加行应补写總計/Rate/三薪公式。"""
+    """超过模板 15 人槽位时，动态追加行应补写總計/Rate 公式（不含三薪）。"""
     for i in range(TEMPLATE_PERSON_SLOTS + 1):
         client.post(
             "/api/entries",
@@ -237,7 +237,7 @@ def test_extra_person_beyond_template_slots_has_summary_formulas(client, db):
         f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
     )
     assert ws.cell(on_row, al_col).value == f"=COUNTIF(E{off_row}:AI{off_row},22.5)"
-    assert ws.cell(on_row, am_col).value == f"=COUNTIF(E{on_row}:AI{off_row},8.5)"
+    assert ws.cell(on_row, am_col).value in (None, "")
     assert ws.cell(on_row, NAME_COL + 1).value == f"员工{TEMPLATE_PERSON_SLOTS + 1}"
     assert f"AJ{on_row}:AJ{off_row}" in [str(m) for m in ws.merged_cells.ranges]
 
@@ -257,10 +257,13 @@ def test_within_template_slots_do_not_add_rate_triple_pay_formulas(client, db):
     on_row = PERSON_START_ROW + 1
     assert ws.cell(on_row, RATE_COL + 1).value == "总工时"
     assert ws.cell(on_row, TRIPLE_PAY_COL + 1).value == "三薪"
+    # 第二位人员不再保留模板三薪 COUNTIF
+    second_on_row = PERSON_START_ROW + ROWS_PER_PERSON + 1
+    assert ws.cell(second_on_row, TRIPLE_PAY_COL + 1).value in (None, "")
 
 
 def test_extended_template_slot_without_new_row_copy_has_summary_formulas(client, db):
-    """模板 16–23 号槽（rows 33–48）已有行结构，导出时也应补公式。"""
+    """模板 16–23 号槽（rows 33–48）已有行结构，导出时补總計/Rate 公式，不统计三薪。"""
     for i in range(TEMPLATE_EXTENDED_SLOTS):
         client.post(
             "/api/entries",
@@ -284,9 +287,7 @@ def test_extended_template_slot_without_new_row_copy_has_summary_formulas(client
         f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
     )
     assert ws.cell(on_row, RATE_COL + 1).value == f"=COUNTIF(E{off_row}:AI{off_row},22.5)"
-    assert ws.cell(on_row, TRIPLE_PAY_COL + 1).value == (
-        f"=COUNTIF(E{on_row}:AI{off_row},8.5)"
-    )
+    assert ws.cell(on_row, TRIPLE_PAY_COL + 1).value in (None, "")
 
 
 def test_template_total_formulas_match_full_day_range():
