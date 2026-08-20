@@ -13,6 +13,13 @@ from app.models import Employee, WorkEntry
 _ROSTER_SPLIT = re.compile(r"[\s、,，；;]+")
 
 
+class NameConflictError(Exception):
+    def __init__(self, existing_id: UUID, existing_name: str):
+        self.existing_id = existing_id
+        self.existing_name = existing_name
+        super().__init__(existing_name)
+
+
 def get_or_create_employee(db: Session, name: str) -> Employee:
     cleaned = name.strip()
     if not cleaned:
@@ -197,10 +204,169 @@ def deactivate_employee(db: Session, employee_id: UUID) -> Employee:
     return emp
 
 
+def rename_employee(db: Session, employee_id: UUID, raw_name: str) -> Employee:
+    emp = db.get(Employee, employee_id)
+    if emp is None:
+        raise KeyError("员工不存在")
+    cleaned = raw_name.strip()
+    if not cleaned:
+        raise ValueError("姓名不能为空")
+    if len(cleaned) > 64:
+        raise ValueError("姓名最长 64 字")
+    if emp.name == cleaned:
+        return emp
+    conflict = db.scalars(
+        select(Employee).where(
+            Employee.name == cleaned,
+            Employee.is_active.is_(True),
+            Employee.id != employee_id,
+        )
+    ).one_or_none()
+    if conflict is not None:
+        raise NameConflictError(conflict.id, conflict.name)
+    emp.name = cleaned
+    db.flush()
+    return emp
+
+
+def _entry_summary(entry: WorkEntry) -> dict:
+    return {
+        "id": entry.id,
+        "status": entry.status,
+        "start_time": entry.start_time,
+        "end_time": entry.end_time,
+        "ot_start_time": entry.ot_start_time,
+        "ot_end_time": entry.ot_end_time,
+        "is_external": entry.is_external,
+        "is_trial": entry.is_trial,
+        "skip_deduction": bool(getattr(entry, "skip_deduction", False)),
+        "note": entry.note,
+    }
+
+
+def _require_active_pair(db: Session, source_id: UUID, target_id: UUID) -> tuple[Employee, Employee]:
+    if source_id == target_id:
+        raise ValueError("不能合并同一人")
+    source = db.get(Employee, source_id)
+    target = db.get(Employee, target_id)
+    if source is None or target is None:
+        raise KeyError("员工不存在")
+    if not source.is_active or not target.is_active:
+        raise ValueError("只能合并活跃人员")
+    return source, target
+
+
+def merge_preview(db: Session, source_id: UUID, target_id: UUID) -> dict:
+    source, target = _require_active_pair(db, source_id, target_id)
+    source_entries = list(
+        db.scalars(select(WorkEntry).where(WorkEntry.employee_id == source.id)).all()
+    )
+    target_by_date = {
+        e.work_date: e
+        for e in db.scalars(select(WorkEntry).where(WorkEntry.employee_id == target.id)).all()
+    }
+    conflicts: list[dict] = []
+    movable_count = 0
+    for entry in sorted(source_entries, key=lambda e: e.work_date):
+        other = target_by_date.get(entry.work_date)
+        if other is not None:
+            conflicts.append({
+                "work_date": entry.work_date,
+                "source_entry": _entry_summary(entry),
+                "target_entry": _entry_summary(other),
+            })
+        else:
+            movable_count += 1
+    return {
+        "source_name": source.name,
+        "target_name": target.name,
+        "source_export_name": source.export_name,
+        "target_export_name": target.export_name,
+        "source_position": source.position,
+        "target_position": target.position,
+        "movable_count": movable_count,
+        "conflicts": conflicts,
+    }
+
+
+def _apply_field_keep(source: Employee, target: Employee, field: str, keep: str) -> None:
+    if keep == "empty":
+        setattr(target, field, None)
+        return
+    chosen = source if keep == "source" else target
+    setattr(target, field, getattr(chosen, field))
+
+
+def merge_employees(
+    db: Session,
+    source_id: UUID,
+    target_id: UUID,
+    resolutions: list[dict],
+    *,
+    export_name_keep: str = "target",
+    position_keep: str = "target",
+) -> dict:
+    source, target = _require_active_pair(db, source_id, target_id)
+    preview = merge_preview(db, source_id, target_id)
+    conflict_dates = {c["work_date"] for c in preview["conflicts"]}
+    resolution_map = {r["work_date"]: r["keep"] for r in resolutions}
+    if set(resolution_map.keys()) != conflict_dates:
+        raise ValueError("冲突日期 resolution 不完整")
+
+    merged_entries = 0
+    discarded_entries = 0
+
+    source_entries = list(
+        db.scalars(select(WorkEntry).where(WorkEntry.employee_id == source.id)).all()
+    )
+    target_by_date = {
+        e.work_date: e
+        for e in db.scalars(select(WorkEntry).where(WorkEntry.employee_id == target.id)).all()
+    }
+
+    to_delete: list[WorkEntry] = []
+    to_reassign: list[WorkEntry] = []
+
+    for entry in source_entries:
+        other = target_by_date.get(entry.work_date)
+        if other is None:
+            to_reassign.append(entry)
+            continue
+        keep = resolution_map[entry.work_date]
+        if keep == "source":
+            to_delete.append(other)
+            to_reassign.append(entry)
+            discarded_entries += 1
+        else:
+            to_delete.append(entry)
+            discarded_entries += 1
+
+    for doomed in to_delete:
+        db.delete(doomed)
+    db.flush()
+
+    for entry in to_reassign:
+        entry.employee_id = target.id
+        merged_entries += 1
+
+    _apply_field_keep(source, target, "export_name", export_name_keep)
+    _apply_field_keep(source, target, "position", position_keep)
+    source.is_active = False
+    db.flush()
+
+    return {
+        "merged_entries": merged_entries,
+        "discarded_entries": discarded_entries,
+        "target": target,
+    }
+
+
 def update_employee(db: Session, employee_id: UUID, fields: dict) -> Employee:
     emp = db.get(Employee, employee_id)
     if emp is None:
         raise KeyError("员工不存在")
+    if "name" in fields:
+        emp = rename_employee(db, employee_id, fields["name"])
     for key in ("export_name", "position"):
         if key not in fields:
             continue

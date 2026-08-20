@@ -113,3 +113,113 @@ def test_patch_employee_rejects_overlong(client):
     emp = client.post("/api/employees", json={"name": "苑菱"}).json()
     r = client.patch(f"/api/employees/{emp['id']}", json={"position": "岗" * 65})
     assert r.status_code == 400
+
+
+def _entry(client, work_date, name, **kwargs):
+    status = kwargs.get("status", "on_duty")
+    payload = {"work_date": work_date, "name": name}
+    if status not in ("rest", "leave"):
+        payload["start_time"] = "09:00"
+        payload["end_time"] = "18:00"
+    payload.update(kwargs)
+    return client.post("/api/entries", json=payload)
+
+
+def test_patch_employee_rename_success(client):
+    emp = client.post("/api/employees", json={"name": "李四"}).json()
+    _entry(client, "2026-08-04", "李四")
+    r = client.patch(f"/api/employees/{emp['id']}", json={"name": "李肆"})
+    assert r.status_code == 200
+    assert r.json()["name"] == "李肆"
+    entries = client.get("/api/entries", params={"date": "2026-08-04"}).json()
+    assert entries[0]["employee_name"] == "李肆"
+
+
+def test_patch_employee_rename_conflict_409(client):
+    a = client.post("/api/employees", json={"name": "李四"}).json()
+    client.post("/api/employees", json={"name": "张三"})
+    r = client.patch(f"/api/employees/{a['id']}", json={"name": "张三"})
+    assert r.status_code == 409
+    body = r.json()["detail"]
+    assert body["code"] == "name_exists"
+    assert body["existing_name"] == "张三"
+
+
+def test_patch_employee_rename_same_name_noop(client):
+    emp = client.post("/api/employees", json={"name": "李四"}).json()
+    r = client.patch(f"/api/employees/{emp['id']}", json={"name": "李四"})
+    assert r.status_code == 200
+    assert r.json()["name"] == "李四"
+
+
+def test_merge_preview_lists_conflicts(client):
+    a = client.post("/api/employees", json={"name": "李四"}).json()
+    b = client.post("/api/employees", json={"name": "张三"}).json()
+    _entry(client, "2026-08-05", "李四")
+    _entry(client, "2026-08-05", "张三", status="rest")
+    _entry(client, "2026-08-06", "李四")
+
+    r = client.get("/api/employees/merge-preview", params={
+        "source_id": a["id"], "target_id": b["id"],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["movable_count"] == 1
+    assert len(body["conflicts"]) == 1
+    assert body["conflicts"][0]["work_date"] == "2026-08-05"
+    assert body["conflicts"][0]["source_entry"]["status"] == "on_duty"
+    assert body["conflicts"][0]["target_entry"]["status"] == "rest"
+
+
+def test_merge_moves_entries_and_deactivates_source(client):
+    a = client.post("/api/employees", json={"name": "李四"}).json()
+    b = client.post("/api/employees", json={"name": "张三"}).json()
+    client.patch(f"/api/employees/{a['id']}", json={
+        "export_name": "李四全名", "position": "收银",
+    })
+    client.patch(f"/api/employees/{b['id']}", json={
+        "export_name": "张三全名", "position": "理货",
+    })
+    _entry(client, "2026-08-05", "李四")
+    _entry(client, "2026-08-05", "张三", status="rest")
+    _entry(client, "2026-08-06", "李四")
+
+    r = client.post("/api/employees/merge", json={
+        "source_id": a["id"],
+        "target_id": b["id"],
+        "resolutions": [{"work_date": "2026-08-05", "keep": "source"}],
+        "export_name_keep": "source",
+        "position_keep": "target",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["merged_entries"] == 2
+    assert body["discarded_entries"] == 1
+    assert body["target"]["export_name"] == "李四全名"
+    assert body["target"]["position"] == "理货"
+
+    names = [e["name"] for e in client.get("/api/employees").json()]
+    assert "李四" not in names
+    assert "张三" in names
+
+    entries = client.get("/api/entries", params={"date": "2026-08-05"}).json()
+    assert len(entries) == 1
+    assert entries[0]["employee_name"] == "张三"
+    assert entries[0]["status"] == "on_duty"
+
+    entries6 = client.get("/api/entries", params={"date": "2026-08-06"}).json()
+    assert len(entries6) == 1
+    assert entries6[0]["employee_name"] == "张三"
+
+
+def test_merge_rejects_incomplete_resolutions(client):
+    a = client.post("/api/employees", json={"name": "李四"}).json()
+    b = client.post("/api/employees", json={"name": "张三"}).json()
+    _entry(client, "2026-08-05", "李四")
+    _entry(client, "2026-08-05", "张三", status="rest")
+    r = client.post("/api/employees/merge", json={
+        "source_id": a["id"],
+        "target_id": b["id"],
+        "resolutions": [],
+    })
+    assert r.status_code == 400

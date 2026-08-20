@@ -1,12 +1,15 @@
 async function parseError(response) {
   let detail = `请求失败（${response.status}）`
+  let body = null
   const raw = await response.text()
 
   if (raw) {
     try {
-      const body = JSON.parse(raw)
+      body = JSON.parse(raw)
       if (typeof body?.detail === 'string') {
         detail = body.detail
+      } else if (typeof body?.detail === 'object' && body.detail !== null) {
+        detail = body.detail.message || JSON.stringify(body.detail)
       } else if (Array.isArray(body?.detail)) {
         detail = body.detail
           .map((item) => item.msg || JSON.stringify(item))
@@ -23,6 +26,9 @@ async function parseError(response) {
 
   const error = new Error(detail)
   error.status = response.status
+  if (typeof body?.detail === 'object' && body.detail !== null && !Array.isArray(body.detail)) {
+    error.body = body.detail
+  }
   throw error
 }
 

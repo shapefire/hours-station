@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/client.js'
 import { notifyRosterChanged } from '../settings/events.js'
+import RenameConflictModal from './RenameConflictModal.jsx'
+import MergeConflictModal from './MergeConflictModal.jsx'
 
 export function splitRosterText(text) {
   const names = []
@@ -35,6 +37,9 @@ export default function RosterSettingsPanel() {
   const orderBeforeDragRef = useRef('')
   const [draggingId, setDraggingId] = useState(null)
   const [dropHint, setDropHint] = useState(null)
+  const [pendingRename, setPendingRename] = useState(null)
+  const [mergeCtx, setMergeCtx] = useState(null)
+  const nameSnapshotRef = useRef({})
 
   function loadRoster() {
     setLoading(true)
@@ -45,6 +50,7 @@ export default function RosterSettingsPanel() {
         const list = Array.isArray(rows) ? rows : []
         setRoster(list)
         rosterRef.current = list
+        nameSnapshotRef.current = Object.fromEntries(list.map((emp) => [emp.id, emp.name]))
         const ids = new Set(list.map((emp) => emp.id))
         setSelected((prev) => new Set([...prev].filter((id) => ids.has(id))))
       })
@@ -192,6 +198,86 @@ export default function RosterSettingsPanel() {
       await loadRoster()
       setError(message)
     }
+  }
+
+  async function saveName(id) {
+    const emp = rosterRef.current.find((row) => row.id === id)
+    if (!emp || busy) return
+    const value = typeof emp.name === 'string' ? emp.name.trim() : ''
+    const original = (nameSnapshotRef.current[id] ?? emp.name ?? '').trim()
+    if (!value) {
+      updateLocal(id, 'name', original)
+      return
+    }
+    if (value === original) return
+    setBusy(true)
+    setError(null)
+    try {
+      const body = await api.patch(`/api/employees/${id}`, { name: value })
+      nameSnapshotRef.current[id] = body.name
+      setRoster((prev) => {
+        const next = prev.map((row) => (row.id === id ? { ...row, name: body.name } : row))
+        rosterRef.current = next
+        return next
+      })
+      notifyRosterChanged()
+    } catch (err) {
+      if (err?.status === 409 && err?.body?.code === 'name_exists') {
+        setPendingRename({
+          id,
+          oldName: original,
+          newName: value,
+          existingId: err.body.existing_id,
+          existingName: err.body.existing_name,
+        })
+        return
+      }
+      await loadRoster()
+      setError(err?.message || '保存失败，请稍后重试')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function cancelPendingRename() {
+    if (!pendingRename) return
+    updateLocal(pendingRename.id, 'name', pendingRename.oldName)
+    nameSnapshotRef.current[pendingRename.id] = pendingRename.oldName
+    setPendingRename(null)
+  }
+
+  function continueMerge() {
+    if (!pendingRename) return
+    setMergeCtx({
+      sourceId: pendingRename.id,
+      sourceName: pendingRename.oldName,
+      targetId: pendingRename.existingId,
+      targetName: pendingRename.existingName,
+    })
+    setPendingRename(null)
+  }
+
+  async function finishMerge() {
+    setMergeCtx(null)
+    notifyRosterChanged()
+    await loadRoster()
+    setStatus('合并完成')
+  }
+
+  function exportNameWarning(empId, exportName) {
+    const trimmed = (exportName || '').trim()
+    if (!trimmed) return null
+    const other = rosterRef.current.find(
+      (row) =>
+        row.id !== empId &&
+        (row.name === trimmed || (row.export_name || '').trim() === trimmed),
+    )
+    if (!other) return null
+    const label =
+      (other.export_name || '').trim() === trimmed && other.export_name !== other.name
+        ? other.export_name
+        : other.name
+    return `导出姓名与「${label}」相同，Excel 导出时可能混淆`
   }
 
   function moveEmployeeToIndex(fromId, toIndex) {
@@ -350,7 +436,22 @@ export default function RosterSettingsPanel() {
                 onChange={() => toggleSelected(emp.id)}
                 aria-label={`选择 ${emp.name}`}
               />
-              <span className="settings-modal__item-text">{emp.name}</span>
+              <input
+                type="text"
+                className="roster-row__field roster-row__field--name"
+                aria-label={`${emp.name} 短名`}
+                value={emp.name}
+                disabled={busy}
+                maxLength={64}
+                onChange={(e) => updateLocal(emp.id, 'name', e.target.value)}
+                onFocus={() => {
+                  nameSnapshotRef.current[emp.id] = emp.name
+                }}
+                onBlur={() => saveName(emp.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+              />
             </label>
             <input
               type="text"
@@ -363,17 +464,22 @@ export default function RosterSettingsPanel() {
               onChange={(e) => updateLocal(emp.id, 'position', e.target.value)}
               onBlur={() => savePatch(emp.id, 'position')}
             />
-            <input
-              type="text"
-              className="roster-row__field"
-              aria-label={`${emp.name} 导出姓名`}
-              value={emp.export_name || ''}
-              disabled={busy}
-              maxLength={64}
-              placeholder="导出全名"
-              onChange={(e) => updateLocal(emp.id, 'export_name', e.target.value)}
-              onBlur={() => savePatch(emp.id, 'export_name')}
-            />
+            <div className="roster-row__export-cell">
+              <input
+                type="text"
+                className="roster-row__field"
+                aria-label={`${emp.name} 导出姓名`}
+                value={emp.export_name || ''}
+                disabled={busy}
+                maxLength={64}
+                placeholder="导出全名"
+                onChange={(e) => updateLocal(emp.id, 'export_name', e.target.value)}
+                onBlur={() => savePatch(emp.id, 'export_name')}
+              />
+              {exportNameWarning(emp.id, emp.export_name) ? (
+                <p className="settings-modal__warn">{exportNameWarning(emp.id, emp.export_name)}</p>
+              ) : null}
+            </div>
             <button
               type="button"
               className="btn btn--ghost btn--sm"
@@ -455,6 +561,28 @@ export default function RosterSettingsPanel() {
             document.body,
           )
         : null}
+
+      {pendingRename ? (
+        <RenameConflictModal
+          oldName={pendingRename.oldName}
+          newName={pendingRename.newName}
+          busy={busy}
+          onCancel={cancelPendingRename}
+          onContinue={continueMerge}
+        />
+      ) : null}
+
+      {mergeCtx ? (
+        <MergeConflictModal
+          sourceId={mergeCtx.sourceId}
+          sourceName={mergeCtx.sourceName}
+          targetId={mergeCtx.targetId}
+          targetName={mergeCtx.targetName}
+          busy={busy}
+          onCancel={() => setMergeCtx(null)}
+          onComplete={finishMerge}
+        />
+      ) : null}
     </section>
   )
 }

@@ -2288,6 +2288,85 @@ textarea {
   cursor: not-allowed;
 }
 
+.roster-row__field--name {
+  flex: 1 1 4.5rem;
+  min-width: 4rem;
+  font-weight: 600;
+}
+
+.roster-row__export-cell {
+  flex: 1 1 6rem;
+  min-width: 5.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.roster-row__export-cell .roster-row__field {
+  flex: none;
+  width: 100%;
+}
+
+.settings-modal__warn {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b45309;
+}
+
+.merge-field-choice {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  font-size: 0.88rem;
+}
+
+.merge-field-choice legend {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.merge-field-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.merge-conflict-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+}
+
+.merge-conflict-table th,
+.merge-conflict-table td {
+  padding: 0.4rem 0.45rem;
+  border-bottom: 1px solid var(--separator);
+  vertical-align: top;
+  text-align: left;
+}
+
+.merge-conflict-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.merge-conflict-table td label {
+  display: block;
+  margin-bottom: 0.25rem;
+  cursor: pointer;
+}
+
+.roster-merge-modal.modal {
+  max-width: min(42rem, 96vw);
+}
+
 .settings-modal__add {
   display: flex;
   gap: 0.55rem;

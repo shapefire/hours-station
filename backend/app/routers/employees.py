@@ -11,6 +11,10 @@ from app.schemas import (
     EmployeeOut,
     EmployeeReorderIn,
     EmployeeUpdate,
+    MergeIn,
+    MergeOut,
+    MergePreviewOut,
+    NameExistsOut,
 )
 from app.services import employees as employees_service
 
@@ -73,11 +77,60 @@ def reorder_employees(payload: EmployeeReorderIn, db: Session = Depends(get_db))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.get("/merge-preview", response_model=MergePreviewOut)
+def get_merge_preview(
+    source_id: UUID = Query(...),
+    target_id: UUID = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = employees_service.merge_preview(db, source_id, target_id)
+    except KeyError as exc:
+        detail = str(exc.args[0]) if exc.args else "员工不存在"
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    return MergePreviewOut.model_validate(data)
+
+
+@router.post("/merge", response_model=MergeOut)
+def post_merge(payload: MergeIn, db: Session = Depends(get_db)):
+    resolutions = [r.model_dump() for r in payload.resolutions]
+    try:
+        result = employees_service.merge_employees(
+            db,
+            payload.source_id,
+            payload.target_id,
+            resolutions,
+            export_name_keep=payload.export_name_keep,
+            position_keep=payload.position_keep,
+        )
+    except KeyError as exc:
+        detail = str(exc.args[0]) if exc.args else "员工不存在"
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_exc_detail(exc)) from exc
+    target = result.pop("target")
+    return MergeOut(
+        merged_entries=result["merged_entries"],
+        discarded_entries=result["discarded_entries"],
+        target=EmployeeOut.model_validate(target),
+    )
+
+
 @router.patch("/{employee_id}", response_model=EmployeeOut)
 def patch_employee(employee_id: UUID, payload: EmployeeUpdate, db: Session = Depends(get_db)):
     fields = payload.model_dump(exclude_unset=True)
     try:
         emp = employees_service.update_employee(db, employee_id, fields)
+    except employees_service.NameConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=NameExistsOut(
+                existing_id=exc.existing_id,
+                existing_name=exc.existing_name,
+            ).model_dump(mode="json"),
+        ) from exc
     except KeyError as exc:
         detail = str(exc.args[0]) if exc.args else "员工不存在"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc

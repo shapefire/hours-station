@@ -107,8 +107,74 @@ class EmployeeOut(BaseModel):
 
 
 class EmployeeUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
     export_name: str | None = None
     position: str | None = None
+
+
+class NameExistsOut(BaseModel):
+    code: Literal["name_exists"] = "name_exists"
+    existing_id: UUID
+    existing_name: str
+
+
+KeepSide = Literal["source", "target"]
+FieldKeep = Literal["source", "target", "empty"]
+
+
+class MergeEntrySummary(BaseModel):
+    id: UUID
+    status: EntryStatus
+    start_time: time | None
+    end_time: time | None
+    ot_start_time: time | None
+    ot_end_time: time | None
+    is_external: bool
+    is_trial: bool
+    skip_deduction: bool
+    note: str | None
+
+    @field_serializer("start_time", "end_time", "ot_start_time", "ot_end_time")
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")
+
+
+class MergeConflictOut(BaseModel):
+    work_date: date
+    source_entry: MergeEntrySummary
+    target_entry: MergeEntrySummary
+
+
+class MergePreviewOut(BaseModel):
+    source_name: str
+    target_name: str
+    source_export_name: str | None
+    target_export_name: str | None
+    source_position: str | None
+    target_position: str | None
+    movable_count: int
+    conflicts: list[MergeConflictOut]
+
+
+class MergeResolutionIn(BaseModel):
+    work_date: date
+    keep: KeepSide
+
+
+class MergeIn(BaseModel):
+    source_id: UUID
+    target_id: UUID
+    resolutions: list[MergeResolutionIn] = Field(default_factory=list)
+    export_name_keep: FieldKeep = "target"
+    position_keep: FieldKeep = "target"
+
+
+class MergeOut(BaseModel):
+    merged_entries: int
+    discarded_entries: int
+    target: EmployeeOut
 
 
 class EmployeeReorderIn(BaseModel):
