@@ -10,12 +10,15 @@ from app.services.hr_excel_layout import (
     NAME_COL,
     PERSON_START_ROW,
     POSITION_COL,
+    RATE_COL,
     ROWS_PER_PERSON,
     SEQ_COL,
     SUPPORT_VALUE_COL,
+    TEMPLATE_EXTENDED_SLOTS,
     TEMPLATE_PERSON_SLOTS,
     TEMPLATE_PATH,
     TOTAL_HEADER_COL,
+    TRIPLE_PAY_COL,
     WEEKDAY_ROW,
 )
 
@@ -205,6 +208,85 @@ def test_on_duty_short_shift_no_deduction_in_export_cells(client, db):
 
     assert on_cell in (expected_on_val, float(expected_on_val))
     assert off_cell in (expected_off_val, float(expected_off_val))
+
+
+def test_extra_person_beyond_template_slots_has_summary_formulas(client, db):
+    """超过模板 15 人槽位时，动态追加行应补写總計/Rate/三薪公式。"""
+    for i in range(TEMPLATE_PERSON_SLOTS + 1):
+        client.post(
+            "/api/entries",
+            json={
+                "work_date": "2026-08-01",
+                "name": f"员工{i + 1}",
+                "start_time": "08:00",
+                "end_time": "16:00",
+            },
+        )
+
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+
+    extra_index = TEMPLATE_PERSON_SLOTS
+    on_row = PERSON_START_ROW + extra_index * ROWS_PER_PERSON + 1
+    off_row = on_row + 1
+    aj_col = TOTAL_HEADER_COL + 1
+    al_col = RATE_COL + 1
+    am_col = TRIPLE_PAY_COL + 1
+
+    assert ws.cell(on_row, aj_col).value == (
+        f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
+    )
+    assert ws.cell(on_row, al_col).value == f"=COUNTIF(E{off_row}:AI{off_row},22.5)"
+    assert ws.cell(on_row, am_col).value == f"=COUNTIF(E{on_row}:AI{off_row},8.5)"
+    assert ws.cell(on_row, NAME_COL + 1).value == f"员工{TEMPLATE_PERSON_SLOTS + 1}"
+    assert f"AJ{on_row}:AJ{off_row}" in [str(m) for m in ws.merged_cells.ranges]
+
+
+def test_within_template_slots_do_not_add_rate_triple_pay_formulas(client, db):
+    client.post(
+        "/api/entries",
+        json={
+            "work_date": "2026-08-01",
+            "name": "张三",
+            "start_time": "08:00",
+            "end_time": "16:00",
+        },
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    on_row = PERSON_START_ROW + 1
+    assert ws.cell(on_row, RATE_COL + 1).value == "总工时"
+    assert ws.cell(on_row, TRIPLE_PAY_COL + 1).value == "三薪"
+
+
+def test_extended_template_slot_without_new_row_copy_has_summary_formulas(client, db):
+    """模板 16–23 号槽（rows 33–48）已有行结构，导出时也应补公式。"""
+    for i in range(TEMPLATE_EXTENDED_SLOTS):
+        client.post(
+            "/api/entries",
+            json={
+                "work_date": "2026-08-01",
+                "name": f"员工{i + 1}",
+                "start_time": "08:00",
+                "end_time": "16:00",
+            },
+        )
+
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+
+    last_index = TEMPLATE_EXTENDED_SLOTS - 1
+    on_row = PERSON_START_ROW + last_index * ROWS_PER_PERSON + 1
+    off_row = on_row + 1
+    aj_col = TOTAL_HEADER_COL + 1
+
+    assert ws.cell(on_row, aj_col).value == (
+        f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
+    )
+    assert ws.cell(on_row, RATE_COL + 1).value == f"=COUNTIF(E{off_row}:AI{off_row},22.5)"
+    assert ws.cell(on_row, TRIPLE_PAY_COL + 1).value == (
+        f"=COUNTIF(E{on_row}:AI{off_row},8.5)"
+    )
 
 
 def test_template_total_formulas_match_full_day_range():

@@ -28,6 +28,8 @@ from app.services.hr_excel_layout import (
     NAME_COL,
     PERSON_START_ROW,
     POSITION_COL,
+    RATE_COL,
+    RATE_COUNT_VALUE,
     ROWS_PER_PERSON,
     SEQ_COL,
     STORE_COL,
@@ -35,6 +37,9 @@ from app.services.hr_excel_layout import (
     SUPPORT_VALUE_COL,
     TEMPLATE_PATH,
     TEMPLATE_PERSON_SLOTS,
+    TOTAL_HEADER_COL,
+    TRIPLE_PAY_COL,
+    TRIPLE_PAY_COUNT_VALUE,
     WEEKDAY_ROW,
 )
 from app.services.settings import get_store_name
@@ -119,6 +124,47 @@ def _set_cell(ws: Worksheet, row: int, col: int, value) -> None:
     cell.value = value
 
 
+def _total_formula(on_r: int, off_r: int) -> str:
+    return f"=SUM(E{off_r}:AI{off_r})-SUM(E{on_r}:AI{on_r})"
+
+
+def _rate_formula(off_r: int) -> str:
+    return f"=COUNTIF(E{off_r}:AI{off_r},{RATE_COUNT_VALUE})"
+
+
+def _triple_pay_formula(on_r: int, off_r: int) -> str:
+    return f"=COUNTIF(E{on_r}:AI{off_r},{TRIPLE_PAY_COUNT_VALUE})"
+
+
+def _ensure_aj_merge(ws: Worksheet, on_r: int, off_r: int) -> None:
+    aj_col = TOTAL_HEADER_COL + 1
+    merge_range = (
+        f"{ws.cell(on_r, aj_col).coordinate}:{ws.cell(off_r, aj_col).coordinate}"
+    )
+    if merge_range not in [str(m) for m in ws.merged_cells.ranges]:
+        try:
+            ws.merge_cells(
+                start_row=on_r, start_column=aj_col, end_row=off_r, end_column=aj_col
+            )
+        except ValueError:
+            pass
+
+
+def _ensure_person_summary(ws: Worksheet, person_index: int) -> None:
+    """超出带公式槽位时，补写總計/Rate/三薪公式并合并 AJ。"""
+    if person_index < TEMPLATE_PERSON_SLOTS:
+        return
+
+    on_row0 = PERSON_START_ROW + person_index * ROWS_PER_PERSON
+    on_r = on_row0 + 1
+    off_r = on_row0 + 2
+
+    _ensure_aj_merge(ws, on_r, off_r)
+    _set_cell(ws, on_r, TOTAL_HEADER_COL + 1, _total_formula(on_r, off_r))
+    _set_cell(ws, on_r, RATE_COL + 1, _rate_formula(off_r))
+    _set_cell(ws, on_r, TRIPLE_PAY_COL + 1, _triple_pay_formula(on_r, off_r))
+
+
 def _ensure_person_rows(ws: Worksheet, person_index: int) -> int:
     """Return 0-indexed on-duty row for person_index; append styled rows if needed."""
     on_row = PERSON_START_ROW + person_index * ROWS_PER_PERSON
@@ -155,6 +201,7 @@ def _ensure_person_rows(ws: Worksheet, person_index: int) -> int:
                 ws.merge_cells(start_row=on_r, start_column=col, end_row=off_r, end_column=col)
             except ValueError:
                 pass
+    _ensure_person_summary(ws, person_index)
     return on_row
 
 
