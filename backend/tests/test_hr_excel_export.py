@@ -144,15 +144,12 @@ def test_support_day_and_support_column(client, db):
     on_row = PERSON_START_ROW + 1
     off_row = PERSON_START_ROW + 2
     day5_col = DAY1_COL + 1 + 4  # 公历 5 日
-    # 支援日与到岗同样填上下班
-    assert ws.cell(on_row, day5_col).value in (11.5, 11.50)
-    assert ws.cell(off_row, day5_col).value in (19, 19.0)
-    # 支援列 = 有效工时 8-0.5=7.5
-    # 第一位人员的支援数值应在 AN4
-    off_row = on_row + 1
+    # 支援日不写每日格
+    assert ws.cell(on_row, day5_col).value in (None, "")
+    assert ws.cell(off_row, day5_col).value in (None, "")
+    # 支援列也不写数值
     an_col = 40  # openpyxl 列号：AN
-    support_val = ws.cell(off_row, an_col).value
-    assert support_val in (7.5, 7.50)
+    assert ws.cell(off_row, an_col).value in (None, "")
 
 
 def test_store_name_and_month_anchor(db):

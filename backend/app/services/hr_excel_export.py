@@ -5,7 +5,6 @@ from __future__ import annotations
 from calendar import monthrange
 from copy import copy
 from datetime import date
-from decimal import Decimal
 from io import BytesIO
 from collections import defaultdict
 from zipfile import ZipFile
@@ -17,7 +16,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Employee, WorkEntry
-from app.services.entries import entry_hours_decimal
 from app.services.hr_export_clock import clock_in_out_for_entry, excel_hour_value
 from app.services.hr_excel_layout import (
     DAY1_COL,
@@ -131,6 +129,16 @@ def _rate_formula(off_r: int) -> str:
     return f"=COUNTIF(E{off_r}:AI{off_r},{RATE_COUNT_VALUE})"
 
 
+def _clear_support_value(ws: Worksheet, on_r: int, off_r: int, person_index: int) -> None:
+    """导出不再写入支援列数值；保留第一位人员 on 行的「支援」表头文字。"""
+    col = SUPPORT_VALUE_COL + 1
+    if person_index == 0:
+        _set_cell(ws, off_r, col, None)
+        return
+    _set_cell(ws, on_r, col, None)
+    _set_cell(ws, off_r, col, None)
+
+
 def _clear_triple_pay_stat(ws: Worksheet, on_r: int, off_r: int, person_index: int) -> None:
     """导出不再统计三薪；保留第一位人员 on 行的「三薪」表头文字。"""
     col = TRIPLE_PAY_COL + 1
@@ -221,10 +229,7 @@ def _clear_person_slot(
     for r in (on_r, off_r):
         for d in range(31):
             _set_cell(ws, r, DAY1_COL + 1 + d, None)
-        # AN3 是模板里的“支援”标题（第一位 on 行）。
-        # 当 person_index==0 且 r==on_r 时，跳过清空以避免覆盖标题。
-        if not (person_index == 0 and r == on_r):
-            _set_cell(ws, r, SUPPORT_VALUE_COL + 1, None)
+    _clear_support_value(ws, on_r, off_r, person_index)
     _clear_triple_pay_stat(ws, on_r, off_r, person_index)
 
 
@@ -317,29 +322,13 @@ def _fill_person(
             _set_cell(ws, off_r, col, None)
             continue
         entry = by_day[d]
+        if entry.status == "support":
+            _set_cell(ws, on_r, col, None)
+            _set_cell(ws, off_r, col, None)
+            continue
         inn, out = clock_in_out_for_entry(entry)
         _set_cell(ws, on_r, col, excel_hour_value(inn) if inn is not None else None)
         _set_cell(ws, off_r, col, excel_hour_value(out) if out is not None else None)
 
-    support_sum = sum(
-        (entry_hours_decimal(e) for e in entries if e.status == "support"),
-        Decimal("0"),
-    )
-    support_col = SUPPORT_VALUE_COL + 1
-
-    # “支援”标题占用第一位人员 on 行（AN3），数值需要写到 AN4。
-    if index == 0:
-        if support_sum > 0:
-            _set_cell(ws, off_r, support_col, excel_hour_value(support_sum))
-        else:
-            # 保持 AN3 标题，保证 AN4 为空
-            _set_cell(ws, off_r, support_col, None)
-        # 不触碰 on_r（AN3 标题）
-    else:
-        if support_sum > 0:
-            _set_cell(ws, on_r, support_col, excel_hour_value(support_sum))
-        else:
-            _set_cell(ws, on_r, support_col, None)
-        _set_cell(ws, off_r, support_col, None)
-
+    _clear_support_value(ws, on_r, off_r, index)
     _clear_triple_pay_stat(ws, on_r, off_r, index)
