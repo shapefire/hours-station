@@ -64,10 +64,12 @@ def _normalize_entry_fields(
             raise ValueError("休息/请假不能标记外援或试工")
         return status, False, False, None, None, False
     if status == "support":
-        if start_time is None or end_time is None:
-            raise ValueError("支援必须填写开始与结束时间")
         if is_external or is_trial:
             raise ValueError("支援不能标记外援或试工")
+        if start_time is None and end_time is None:
+            return status, False, False, None, None, False
+        if start_time is None or end_time is None:
+            raise ValueError("时段须成对填写")
         format_effective_hours(start_time, end_time)
         return status, False, False, start_time, end_time, False
     # on_duty

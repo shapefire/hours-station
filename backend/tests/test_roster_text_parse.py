@@ -79,13 +79,31 @@ def test_parse_rest_and_ot_line():
     assert jp["start_time"] is None
 
 
-def test_parse_support_missing_times_error():
+def test_parse_support_without_times_ok():
     text = "8月4 周二\n支援上社：洁怡"
     day = parse_roster_text(text, year=2026)["days"][0]
     e = day["entries"][0]
     assert e["status"] == "support"
     assert e["note"] == "上社"
-    assert "missing_support_times" in e["errors"]
+    assert e["start_time"] is None
+    assert e["end_time"] is None
+    assert "missing_support_times" not in e["errors"]
+    assert e["errors"] == []
+
+
+def test_validate_support_incomplete_pair():
+    from app.services.roster_text_import import _validate_draft
+
+    entry = {
+        "status": "support",
+        "start_time": time(8, 0),
+        "end_time": None,
+        "ot_start_time": None,
+        "ot_end_time": None,
+        "errors": [],
+    }
+    _validate_draft(entry)
+    assert "incomplete_time_pair" in entry["errors"]
 
 
 def test_parse_support_with_times():
@@ -294,7 +312,8 @@ def test_gold_sample_aug4_shift_change_and_ot():
     assert by_name["继鹏"]["ot_end_time"] == time(23, 30)
     assert by_name["继鹏"]["start_time"] is None
     assert by_name["洁怡"]["status"] == "support"
-    assert "missing_support_times" in by_name["洁怡"]["errors"]
+    assert "missing_support_times" not in by_name["洁怡"]["errors"]
+    assert by_name["洁怡"]["errors"] == []
     assert result["unparsed_lines"] == []
 
 
@@ -450,7 +469,9 @@ def test_gold_sample_aug19():
     assert by_name["佳博"]["status"] == "support"
     assert by_name["佳佳"]["status"] == "support"
     assert by_name["佳博"]["note"] == "香雪"
-    assert "missing_support_times" in by_name["佳博"]["errors"]
-    assert "missing_support_times" in by_name["佳佳"]["errors"]
+    assert "missing_support_times" not in by_name["佳博"]["errors"]
+    assert by_name["佳博"]["errors"] == []
+    assert "missing_support_times" not in by_name["佳佳"]["errors"]
+    assert by_name["佳佳"]["errors"] == []
     assert "洁怡" not in by_name or by_name["洁怡"]["status"] == "on_duty"
     assert result["unparsed_lines"] == []

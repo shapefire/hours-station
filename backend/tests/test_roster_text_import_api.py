@@ -5,14 +5,16 @@ SAMPLE = """8月1 周六 完成自检
 """
 
 
-def test_preview_flags_support_without_times(client):
+def test_preview_allows_support_without_times(client):
     r = client.post("/api/entries/import/preview", json={"text": SAMPLE, "year": 2026})
     assert r.status_code == 200
     day = r.json()["days"][0]
     assert day["work_date"] == "2026-08-01"
     assert day["day_note"] == "完成自检"
     support = next(e for e in day["entries"] if e["name"] == "洁怡")
-    assert "missing_support_times" in support["errors"]
+    assert support["status"] == "support"
+    assert "missing_support_times" not in support["errors"]
+    assert support["errors"] == []
 
 
 def test_commit_overwrites_same_person_keeps_others(client):
@@ -48,7 +50,7 @@ def test_commit_overwrites_same_person_keeps_others(client):
     assert note["note"] == "完成自检"
 
 
-def test_commit_rejects_support_without_times(client):
+def test_commit_allows_support_without_times(client):
     r = client.post("/api/entries/import/commit", json={
         "days": [{
             "work_date": "2026-08-01",
@@ -59,7 +61,12 @@ def test_commit_rejects_support_without_times(client):
             }],
         }]
     })
-    assert r.status_code == 400
+    assert r.status_code == 200
+    listed = client.get("/api/entries", params={"date": "2026-08-01"}).json()
+    row = next(e for e in listed if e["employee_name"] == "洁怡")
+    assert row["status"] == "support"
+    assert row["start_time"] is None
+    assert row["effective_hours"] == "0.0"
 
 
 def test_preview_illegal_time_token_returns_200(client):
@@ -99,7 +106,7 @@ def test_commit_all_or_nothing_rolls_back(client):
                 },
                 {
                     "name": "洁怡", "status": "support",
-                    "start_time": None, "end_time": None,
+                    "start_time": "08:00", "end_time": None,
                     "is_trial": False, "note": "上社",
                 },
             ],

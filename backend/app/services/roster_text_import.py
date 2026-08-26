@@ -223,10 +223,11 @@ def _validate_draft(entry: dict) -> None:
     if (main_invalid or ot_invalid) and "invalid_time_range" not in errors:
         errors.append("invalid_time_range")
 
-    if status == _STATUS_SUPPORT and (start is None or end is None):
-        if "missing_support_times" not in errors:
-            errors.append("missing_support_times")
-    elif status == _STATUS_ON_DUTY and (start is None or end is None):
+    main_incomplete = (start is None) != (end is None)
+    if main_incomplete and "incomplete_time_pair" not in errors:
+        errors.append("incomplete_time_pair")
+
+    if status == _STATUS_ON_DUTY and (start is None or end is None) and not main_incomplete:
         if "missing_duty_times" not in errors:
             errors.append("missing_duty_times")
 

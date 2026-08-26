@@ -6,8 +6,8 @@ import NoteField from './NoteField.jsx'
 
 const EMPTY = {
   name: '',
-  start_time: '07:30',
-  end_time: '16:00',
+  start_time: '',
+  end_time: '',
   ot_start_time: '',
   ot_end_time: '',
   note: '',
@@ -28,12 +28,20 @@ function isOtPairIncomplete(start, end) {
   return Boolean(toTimeInputValue(start)) !== Boolean(toTimeInputValue(end))
 }
 
+function isPairIncomplete(start, end) {
+  return Boolean(toTimeInputValue(start)) !== Boolean(toTimeInputValue(end))
+}
+
+function timeOrNull(value) {
+  return toTimeInputValue(value) || null
+}
+
 function entryToForm(entry) {
   if (!entry) return { ...EMPTY }
   return {
     name: entry.employee_name || '',
-    start_time: toTimeInputValue(entry.start_time) || '07:30',
-    end_time: toTimeInputValue(entry.end_time) || '16:00',
+    start_time: toTimeInputValue(entry.start_time),
+    end_time: toTimeInputValue(entry.end_time),
     ot_start_time: toTimeInputValue(entry.ot_start_time),
     ot_end_time: toTimeInputValue(entry.ot_end_time),
     note: entry.note || '',
@@ -62,19 +70,21 @@ export default function SupportForm({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  const mainIncomplete = isPairIncomplete(form.start_time, form.end_time)
   const otIncomplete = isOtPairIncomplete(form.ot_start_time, form.ot_end_time)
   const otReady = Boolean(form.ot_start_time) && Boolean(form.ot_end_time)
+  const hasMainTimes = Boolean(form.start_time) && Boolean(form.end_time)
 
   function handleSubmit(event) {
     event.preventDefault()
     const trimmed = form.name.trim()
     if (!isEdit && !trimmed) return
     if (!isEdit && occupiedMap[trimmed]) return
-    if (otIncomplete) return
+    if (mainIncomplete || otIncomplete) return
     onSubmit?.({
       name: trimmed,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      start_time: timeOrNull(form.start_time),
+      end_time: timeOrNull(form.end_time),
       ...normalizeOtTimes(form.ot_start_time, form.ot_end_time),
       note: form.note.trim() ? form.note.trim() : null,
       status: 'support',
@@ -110,7 +120,6 @@ export default function SupportForm({
           <TimeField
             value={form.start_time}
             onChange={(v) => updateField('start_time', v)}
-            required
             disabled={busy}
             aria-label="开始时间"
           />
@@ -120,14 +129,19 @@ export default function SupportForm({
           <TimeField
             value={form.end_time}
             onChange={(v) => updateField('end_time', v)}
-            required
             disabled={busy}
             aria-label="结束时间"
           />
         </div>
       </div>
 
-      <HoursBreakdown startTime={form.start_time} endTime={form.end_time} />
+      {mainIncomplete ? (
+        <p className="entry-form__error">时段须成对填写</p>
+      ) : null}
+
+      {hasMainTimes ? (
+        <HoursBreakdown startTime={form.start_time} endTime={form.end_time} />
+      ) : null}
 
       <div className="entry-form__row entry-form__row--times">
         <div className="entry-form__field">
@@ -195,7 +209,11 @@ export default function SupportForm({
         <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
           取消
         </button>
-        <button type="submit" className="btn btn--primary" disabled={busy || otIncomplete}>
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={busy || mainIncomplete || otIncomplete}
+        >
           {busy ? '保存中…' : isEdit ? '保存修改' : '新增支援'}
         </button>
       </div>

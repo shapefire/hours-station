@@ -227,6 +227,48 @@ def test_leave_rejects_times(client):
     assert r.status_code == 400
 
 
+def test_create_support_without_times_allowed(client):
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-20",
+        "name": "支援甲",
+        "status": "support",
+    })
+    assert r.status_code == 201
+    body = r.json()
+    assert body["status"] == "support"
+    assert body["start_time"] is None
+    assert body["end_time"] is None
+    assert body["effective_hours"] == "0.0"
+
+
+def test_create_support_incomplete_time_pair_rejected(client):
+    r = client.post("/api/entries", json={
+        "work_date": "2026-08-20",
+        "name": "支援乙",
+        "status": "support",
+        "start_time": "08:00",
+    })
+    assert r.status_code == 400
+    assert "成对" in r.json()["detail"]
+
+
+def test_patch_support_clear_times(client):
+    created = client.post("/api/entries", json={
+        "work_date": "2026-08-21",
+        "name": "支援丙",
+        "status": "support",
+        "start_time": "08:00",
+        "end_time": "17:00",
+    }).json()
+    r = client.patch(f"/api/entries/{created['id']}", json={
+        "clear_times": True,
+    })
+    assert r.status_code == 200
+    assert r.json()["start_time"] is None
+    assert r.json()["end_time"] is None
+    assert r.json()["effective_hours"] == "0.0"
+
+
 def test_create_support_hours_returned_but_flags_forbidden(client):
     ok = client.post("/api/entries", json={
         "work_date": "2026-08-14",

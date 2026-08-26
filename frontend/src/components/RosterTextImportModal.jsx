@@ -12,10 +12,10 @@ const STATUS_OPTIONS = [
 ]
 
 const ERROR_LABEL = {
-  missing_support_times: '支援须填写时段',
   missing_duty_times: '到岗须填写时段',
   invalid_time_range: '结束须晚于开始',
   incomplete_ot_times: '加班开始与结束须同时填写',
+  incomplete_time_pair: '时段须成对填写',
 }
 
 function formatDisplayDate(dateKey) {
@@ -49,10 +49,9 @@ function recomputeEntryErrors(entry) {
   const otInvalid = Boolean(otStart && otEnd && otEnd <= otStart)
   if (mainInvalid || otInvalid) errors.push('invalid_time_range')
   if (isPairIncomplete(otStart, otEnd)) errors.push('incomplete_ot_times')
+  if (isPairIncomplete(start, end)) errors.push('incomplete_time_pair')
 
-  if (status === 'support' && (!start || !end)) {
-    errors.push('missing_support_times')
-  } else if (status === 'on_duty' && (!start || !end)) {
+  if (status === 'on_duty' && (!start || !end) && !isPairIncomplete(start, end)) {
     errors.push('missing_duty_times')
   }
 
