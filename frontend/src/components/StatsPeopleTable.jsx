@@ -24,7 +24,10 @@ function dayStatusLabel(day) {
   if (day.status === 'rest') return '休息'
   if (day.status === 'leave') return '请假'
   if (day.status === 'support') {
-    return `${day.start_time} – ${day.end_time}（支援）`
+    if (day.start_time && day.end_time) {
+      return `${day.start_time} – ${day.end_time}（支援）`
+    }
+    return '支援'
   }
   return `${day.start_time} – ${day.end_time}`
 }
