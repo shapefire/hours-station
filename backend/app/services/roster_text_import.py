@@ -243,13 +243,24 @@ def _flush_day(days: list, current: dict | None, entries: dict[str, dict] | None
     days.append(current)
 
 
+def _record_unparsed(
+    bucket: list[dict],
+    *,
+    line: str,
+    line_no: int,
+    current: dict | None,
+) -> None:
+    work_date = current.get("work_date") if current else None
+    bucket.append({"line": line, "work_date": work_date, "line_no": line_no})
+
+
 def parse_roster_text(text: str, *, year: int) -> dict:
     days: list[dict] = []
-    unparsed_lines: list[str] = []
+    unparsed: list[dict] = []
     current: dict | None = None
     entries: dict[str, dict] | None = None
 
-    for raw_line in text.splitlines():
+    for line_no, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line.strip()
         if not line:
             continue
@@ -278,7 +289,7 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             continue
 
         if current is None or entries is None:
-            unparsed_lines.append(line)
+            _record_unparsed(unparsed, line=line, line_no=line_no, current=current)
             continue
 
         rest_leave_m = _REST_LEAVE_RE.match(line)
@@ -301,7 +312,7 @@ def parse_roster_text(text: str, *, year: int) -> dict:
             location = support_m.group(1).strip() or None
             parsed_people = _parse_support_body(support_m.group(2))
             if parsed_people is None:
-                unparsed_lines.append(line)
+                _record_unparsed(unparsed, line=line, line_no=line_no, current=current)
                 continue
             for name, start, end, times_ok, extra_note in parsed_people:
                 draft = _get_or_create(entries, name)
@@ -324,7 +335,7 @@ def parse_roster_text(text: str, *, year: int) -> dict:
         if duty_m:
             parsed = _parse_duty_payload(duty_m.group(3))
             if parsed is None:
-                unparsed_lines.append(line)
+                _record_unparsed(unparsed, line=line, line_no=line_no, current=current)
                 continue
             name, note, shift_start, shift_end, shift_ok, skip = parsed
             start = _try_parse_time_token(duty_m.group(1))
@@ -369,10 +380,14 @@ def parse_roster_text(text: str, *, year: int) -> dict:
                 draft["ot_end_time"] = ot_end
             continue
 
-        unparsed_lines.append(line)
+        _record_unparsed(unparsed, line=line, line_no=line_no, current=current)
 
     _flush_day(days, current, entries)
-    return {"days": days, "unparsed_lines": unparsed_lines}
+    return {
+        "days": days,
+        "unparsed": unparsed,
+        "unparsed_lines": [row["line"] for row in unparsed],
+    }
 
 
 def preview_roster_import(text: str, *, year: int) -> dict:

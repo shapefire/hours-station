@@ -143,7 +143,20 @@ def test_unparsed_lines_collected():
     text = "8月1 周六\n这不是排班\n16-23.5嘉岚（卫生）6.5"
     result = parse_roster_text(text, year=2026)
     assert "这不是排班" in result["unparsed_lines"]
+    assert len(result["unparsed"]) == 1
+    row = result["unparsed"][0]
+    assert row["line"] == "这不是排班"
+    assert row["work_date"] == date(2026, 8, 1)
+    assert row["line_no"] == 2
     assert result["days"][0]["entries"][0]["name"] == "嘉岚"
+
+
+def test_unparsed_carries_date_context_across_days():
+    text = "8月1 周六\n坏行A\n8月2 周日\n坏行B"
+    result = parse_roster_text(text, year=2026)
+    by_line = {row["line"]: row for row in result["unparsed"]}
+    assert by_line["坏行A"]["work_date"] == date(2026, 8, 1)
+    assert by_line["坏行B"]["work_date"] == date(2026, 8, 2)
 
 
 def test_ot_only_then_duty_keeps_ot():

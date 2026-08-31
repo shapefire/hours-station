@@ -16,6 +16,7 @@ const ERROR_LABEL = {
   invalid_time_range: '结束须晚于开始',
   incomplete_ot_times: '加班开始与结束须同时填写',
   incomplete_time_pair: '时段须成对填写',
+  invalid_date: '日期无效',
 }
 
 function formatDisplayDate(dateKey) {
@@ -163,6 +164,94 @@ function errorLabel(code) {
   return ERROR_LABEL[code] || code
 }
 
+function normalizeUnparsed(result) {
+  if (Array.isArray(result?.unparsed) && result.unparsed.length > 0) {
+    return result.unparsed.map((row) => ({
+      line: String(row.line ?? ''),
+      work_date: row.work_date ?? null,
+      line_no: Number(row.line_no) || 0,
+    }))
+  }
+  const lines = Array.isArray(result?.unparsed_lines) ? result.unparsed_lines : []
+  return lines.map((line, index) => ({ line, work_date: null, line_no: index + 1 }))
+}
+
+function buildDayIssueItems(day) {
+  const items = []
+  for (const code of day.errors || []) {
+    items.push({ kind: 'day', label: errorLabel(code) })
+  }
+  for (const entry of day.entries || []) {
+    for (const code of entry.errors || []) {
+      items.push({ kind: 'entry', name: entry.name, label: errorLabel(code) })
+    }
+  }
+  return items
+}
+
+function buildImportIssueSummary(days, unparsed) {
+  const groups = new Map()
+
+  function ensureGroup(workDate, title) {
+    const key = workDate ?? '__no_date__'
+    if (!groups.has(key)) {
+      groups.set(key, { work_date: workDate, title, items: [] })
+    }
+    return groups.get(key)
+  }
+
+  for (const day of days) {
+    const items = buildDayIssueItems(day)
+    if (items.length > 0) {
+      ensureGroup(day.work_date, formatDisplayDate(day.work_date)).items.push(...items)
+    }
+  }
+
+  for (const row of unparsed) {
+    const title = row.work_date ? formatDisplayDate(row.work_date) : '文首（无日期）'
+    ensureGroup(row.work_date, title).items.push({
+      kind: 'unparsed',
+      line_no: row.line_no,
+      line: row.line,
+    })
+  }
+
+  const ordered = []
+  if (groups.has('__no_date__')) {
+    ordered.push(groups.get('__no_date__'))
+    groups.delete('__no_date__')
+  }
+  for (const day of days) {
+    const key = day.work_date ?? '__no_date__'
+    if (groups.has(key)) {
+      ordered.push(groups.get(key))
+      groups.delete(key)
+    }
+  }
+  for (const group of groups.values()) {
+    ordered.push(group)
+  }
+  return ordered
+}
+
+function renderSummaryItem(item) {
+  if (item.kind === 'unparsed') {
+    return `第${item.line_no}行未识别：${item.line}`
+  }
+  if (item.kind === 'entry') {
+    return `${item.name}：${item.label}`
+  }
+  return item.label
+}
+
+function scrollToIssueGroup(group, scrollToDay, scrollToUnparsed) {
+  if (group.work_date) {
+    scrollToDay(group.work_date)
+  } else {
+    scrollToUnparsed()
+  }
+}
+
 export default function RosterTextImportModal({ open, year, onClose, onSuccess }) {
   const titleId = useId()
   const pasteRef = useRef(null)
@@ -173,10 +262,11 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
   const parsingRef = useRef(false)
   const daySectionRefs = useRef(new Map())
   const unparsedRef = useRef(null)
+  const shouldAutoScrollRef = useRef(false)
   const [phase, setPhase] = useState('edit_text')
   const [text, setText] = useState('')
   const [days, setDays] = useState([])
-  const [unparsedLines, setUnparsedLines] = useState([])
+  const [unparsed, setUnparsed] = useState([])
   const [error, setError] = useState(null)
   const [parseBusy, setParseBusy] = useState(false)
 
@@ -198,8 +288,9 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
     setPhase('edit_text')
     setText('')
     setDays([])
-    setUnparsedLines([])
+    setUnparsed([])
     setError(null)
+    shouldAutoScrollRef.current = false
   }, [open])
 
   useEffect(() => {
@@ -226,6 +317,19 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
     pasteRef.current?.focus()
   }, [open, phase])
 
+  useEffect(() => {
+    if (phase !== 'preview' || !shouldAutoScrollRef.current) return
+    shouldAutoScrollRef.current = false
+
+    const summary = buildImportIssueSummary(days, unparsed)
+    const first = summary[0]
+    if (!first) return
+
+    requestAnimationFrame(() => {
+      scrollToIssueGroup(first, scrollToDay, scrollToUnparsed)
+    })
+  }, [phase, days, unparsed])
+
   const daySectionRef = useCallback((workDate) => (el) => {
     if (el) daySectionRefs.current.set(workDate, el)
     else daySectionRefs.current.delete(workDate)
@@ -239,16 +343,8 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
     unparsedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const errorDays = days.filter(
-    (day) => (day.errors && day.errors.length > 0) || day.entries.some((e) => e.errors.length > 0),
-  )
-  const totalErrors = errorDays.reduce(
-    (sum, day) =>
-      sum +
-      (day.errors ? day.errors.length : 0) +
-      day.entries.reduce((s, e) => s + e.errors.length, 0),
-    0,
-  )
+  const issueSummary = buildImportIssueSummary(days, unparsed)
+  const unparsedNoDate = unparsed.filter((row) => !row.work_date)
 
   if (!open) return null
 
@@ -270,7 +366,8 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
       })
       if (requestId !== parseRequestIdRef.current || !openRef.current) return
       setDays((prev) => normalizePreviewDays(result?.days, prev))
-      setUnparsedLines(Array.isArray(result?.unparsed_lines) ? result.unparsed_lines : [])
+      setUnparsed(normalizeUnparsed(result))
+      shouldAutoScrollRef.current = true
       setPhase('preview')
     } catch (err) {
       if (requestId !== parseRequestIdRef.current || !openRef.current) return
@@ -378,34 +475,29 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
             </label>
           ) : (
             <div className="roster-import-modal__preview">
-              {phase === 'preview' && (totalErrors > 0 || unparsedLines.length > 0) ? (
+              {phase === 'preview' && issueSummary.length > 0 ? (
                 <div className="roster-import-summary" role="alert">
-                  {totalErrors > 0 ? (
-                    <span className="roster-import-summary__errors">
-                      {totalErrors}处错误：
-                      {errorDays.map((day, i) => (
-                        <span key={day.work_date}>
-                          {i > 0 ? '、' : ''}
-                          <button
-                            type="button"
-                            className="roster-import-summary__link"
-                            onClick={() => scrollToDay(day.work_date)}
-                          >
-                            {formatDisplayDate(day.work_date)}
-                          </button>
-                        </span>
-                      ))}
-                    </span>
-                  ) : null}
-                  {unparsedLines.length > 0 ? (
-                    <button
-                      type="button"
-                      className="roster-import-summary__link"
-                      onClick={scrollToUnparsed}
-                    >
-                      {unparsedLines.length}行未识别
-                    </button>
-                  ) : null}
+                  <p className="roster-import-summary__lead">
+                    发现 {issueSummary.length} 组问题，请先修正后再导入：
+                  </p>
+                  <ul className="roster-import-summary__list">
+                    {issueSummary.map((group) => (
+                      <li key={group.work_date ?? '__no_date__'} className="roster-import-summary__group">
+                        <button
+                          type="button"
+                          className="roster-import-summary__link"
+                          onClick={() => scrollToIssueGroup(group, scrollToDay, scrollToUnparsed)}
+                        >
+                          {group.title}
+                        </button>
+                        <ul className="roster-import-summary__details">
+                          {group.items.map((item, index) => (
+                            <li key={`${group.work_date}-${index}`}>{renderSummaryItem(item)}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
 
@@ -413,8 +505,19 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                 <p className="roster-import-modal__empty">没有解析出可导入的日期。</p>
               ) : null}
 
-              {days.map((day, dayIndex) => (
-                <section key={day.work_date || dayIndex} className="roster-import-day" ref={daySectionRef(day.work_date)}>
+              {days.map((day, dayIndex) => {
+                const dayUnparsed = unparsed.filter((row) => row.work_date === day.work_date)
+                const dayHasIssue =
+                  (day.errors && day.errors.length > 0) ||
+                  day.entries.some((entry) => entry.errors.length > 0) ||
+                  dayUnparsed.length > 0
+
+                return (
+                <section
+                  key={day.work_date || dayIndex}
+                  className={`roster-import-day${dayHasIssue ? ' roster-import-day--has-error' : ''}`}
+                  ref={daySectionRef(day.work_date)}
+                >
                   <div className="roster-import-day__head">
                     <h3 className="roster-import-day__title">{formatDisplayDate(day.work_date)}</h3>
                     <label className="roster-import-day__note">
@@ -435,6 +538,16 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                     <ul className="roster-import-day__errors">
                       {day.errors.map((code) => (
                         <li key={code}>{errorLabel(code)}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {dayUnparsed.length > 0 ? (
+                    <ul className="roster-import-day__unparsed">
+                      {dayUnparsed.map((row) => (
+                        <li key={`${row.line_no}-${row.line}`}>
+                          第{row.line_no}行未识别：{row.line}
+                        </li>
                       ))}
                     </ul>
                   ) : null}
@@ -579,15 +692,18 @@ export default function RosterTextImportModal({ open, year, onClose, onSuccess }
                     </div>
                   )}
                 </section>
-              ))}
+                )
+              })}
 
-              {unparsedLines.length > 0 ? (
+              {unparsedNoDate.length > 0 ? (
                 <section className="roster-import-unparsed" ref={unparsedRef}>
-                  <h3 className="roster-import-day__title">未识别的行</h3>
-                  <p className="roster-import-unparsed__hint">以下行不会提交。</p>
+                  <h3 className="roster-import-day__title">文首未识别的行</h3>
+                  <p className="roster-import-unparsed__hint">以下行在首个日期行之前，不会提交。</p>
                   <ul>
-                    {unparsedLines.map((line, index) => (
-                      <li key={`${line}-${index}`}>{line}</li>
+                    {unparsedNoDate.map((row) => (
+                      <li key={`${row.line_no}-${row.line}`}>
+                        第{row.line_no}行：{row.line}
+                      </li>
                     ))}
                   </ul>
                 </section>

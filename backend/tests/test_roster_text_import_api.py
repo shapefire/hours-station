@@ -82,6 +82,19 @@ def test_preview_illegal_time_token_returns_200(client):
         assert "invalid_time_range" in day["entries"][0]["errors"]
     else:
         assert any("25-26" in line for line in body["unparsed_lines"])
+    assert "unparsed" in body
+
+
+def test_preview_unparsed_includes_date_context(client):
+    r = client.post(
+        "/api/entries/import/preview",
+        json={"text": "8月1 周六\n坏行\n8月2 周日\n16-23嘉岚", "year": 2026},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    by_line = {row["line"]: row for row in body["unparsed"]}
+    assert by_line["坏行"]["work_date"] == "2026-08-01"
+    assert by_line["坏行"]["line_no"] == 2
 
 
 def test_commit_all_or_nothing_rolls_back(client):

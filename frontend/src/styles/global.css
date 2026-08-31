@@ -1384,9 +1384,8 @@ textarea {
 
 .roster-import-summary {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 1rem;
+  flex-direction: column;
+  gap: 0.45rem;
   padding: 0.5rem 0.75rem;
   background: #fef3f2;
   border-left: 3px solid #d44;
@@ -1394,6 +1393,30 @@ textarea {
   font-size: 0.85rem;
   color: #8b2e2a;
   line-height: 1.5;
+}
+
+.roster-import-summary__lead {
+  margin: 0;
+  font-weight: 600;
+}
+
+.roster-import-summary__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.roster-import-summary__group {
+  margin: 0;
+}
+
+.roster-import-summary__details {
+  margin: 0.15rem 0 0;
+  padding-left: 1rem;
+  color: #6b2a26;
+  font-size: 0.82rem;
 }
 
 .roster-import-summary__link {
@@ -1433,6 +1456,14 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+}
+
+.roster-import-day--has-error {
+  border-color: color-mix(in srgb, #d44 35%, transparent);
+  background: color-mix(in srgb, #d44 4%, var(--bg0));
 }
 
 .roster-import-day__head {
@@ -1474,6 +1505,16 @@ textarea {
 .roster-import-day__errors {
   margin: 0;
   padding-left: 1.1rem;
+  color: #8b2e2a;
+  font-size: 0.85rem;
+}
+
+.roster-import-day__unparsed {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  list-style: none;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, #d44 8%, var(--bg0));
   color: #8b2e2a;
   font-size: 0.82rem;
 }

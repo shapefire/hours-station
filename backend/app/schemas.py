@@ -307,9 +307,16 @@ class RosterImportPreviewDay(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class RosterImportUnparsedLine(BaseModel):
+    line: str
+    work_date: date | None = None
+    line_no: int
+
+
 class RosterImportPreviewOut(BaseModel):
     days: list[RosterImportPreviewDay]
     unparsed_lines: list[str] = Field(default_factory=list)
+    unparsed: list[RosterImportUnparsedLine] = Field(default_factory=list)
 
 
 class RosterImportCommitEntry(BaseModel):
