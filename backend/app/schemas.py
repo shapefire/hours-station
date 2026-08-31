@@ -424,3 +424,39 @@ class ReviewSubmitIn(BaseModel):
 class ReviewSubmitOut(BaseModel):
     reviewed: bool
     dispute_count: int
+
+
+class AdminDisputeOut(BaseModel):
+    id: UUID
+    employee_name: str
+    work_date: date
+    year: int
+    month: int
+    status: str
+    original_status: str
+    original_start_time: time | None = None
+    original_end_time: time | None = None
+    original_ot_start_time: time | None = None
+    original_ot_end_time: time | None = None
+    proposed_start_time: time
+    proposed_end_time: time
+    proposed_ot_start_time: time | None = None
+    proposed_ot_end_time: time | None = None
+    note: str | None = None
+    resolved_at: datetime | None = None
+    resolved_entry_id: UUID | None = None
+
+    @field_serializer(
+        "original_start_time",
+        "original_end_time",
+        "original_ot_start_time",
+        "original_ot_end_time",
+        "proposed_start_time",
+        "proposed_end_time",
+        "proposed_ot_start_time",
+        "proposed_ot_end_time",
+    )
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")

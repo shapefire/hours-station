@@ -1,12 +1,13 @@
 import calendar
-from datetime import date, time
+from datetime import date, datetime, time, timezone
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Employee, MonthlyReview, TimeDispute, WorkEntry
-from app.services.entries import _normalize_ot_times, format_effective_hours
+from app.services.entries import _normalize_ot_times, create_entry, format_effective_hours, update_entry
 
 
 def _month_range(year: int, month: int) -> tuple[date, date, int]:
@@ -75,6 +76,29 @@ def _dispute_to_dict(dispute: TimeDispute) -> dict:
         "proposed_ot_end_time": dispute.proposed_ot_end_time,
         "note": dispute.note,
     }
+
+
+def _admin_dispute_to_dict(dispute: TimeDispute, employee_name: str) -> dict:
+    return {
+        **_dispute_to_dict(dispute),
+        "employee_name": employee_name,
+        "year": dispute.year,
+        "month": dispute.month,
+        "resolved_at": dispute.resolved_at,
+        "resolved_entry_id": dispute.resolved_entry_id,
+    }
+
+
+def _get_dispute_or_raise(db: Session, dispute_id: UUID) -> TimeDispute:
+    dispute = db.get(TimeDispute, dispute_id)
+    if dispute is None:
+        raise KeyError("异议不存在")
+    return dispute
+
+
+def _require_pending(dispute: TimeDispute) -> None:
+    if dispute.status != "pending":
+        raise LookupError("异议已处理")
 
 
 def get_employee_month(db: Session, *, name: str, year: int, month: int) -> dict:
@@ -234,3 +258,90 @@ def submit_monthly_review(
         raise LookupError("该月已核审") from exc
 
     return {"reviewed": True, "dispute_count": len(dispute_rows)}
+
+
+def list_disputes(
+    db: Session,
+    *,
+    status: str | None = None,
+    year: int | None = None,
+    month: int | None = None,
+) -> list[dict]:
+    stmt = (
+        select(TimeDispute, Employee.name)
+        .join(Employee, TimeDispute.employee_id == Employee.id)
+        .order_by(TimeDispute.work_date, TimeDispute.id)
+    )
+    if status is not None:
+        stmt = stmt.where(TimeDispute.status == status)
+    if year is not None:
+        stmt = stmt.where(TimeDispute.year == year)
+    if month is not None:
+        stmt = stmt.where(TimeDispute.month == month)
+
+    rows = db.execute(stmt).all()
+    return [_admin_dispute_to_dict(dispute, employee_name) for dispute, employee_name in rows]
+
+
+def confirm_dispute(db: Session, dispute_id: UUID) -> dict:
+    dispute = _get_dispute_or_raise(db, dispute_id)
+    _require_pending(dispute)
+
+    emp = db.get(Employee, dispute.employee_id)
+    assert emp is not None
+
+    ot_start, ot_end = _validate_proposed_times(
+        dispute.proposed_start_time,
+        dispute.proposed_end_time,
+        dispute.proposed_ot_start_time,
+        dispute.proposed_ot_end_time,
+    )
+
+    entry = db.scalars(
+        select(WorkEntry).where(
+            WorkEntry.employee_id == dispute.employee_id,
+            WorkEntry.work_date == dispute.work_date,
+        )
+    ).one_or_none()
+
+    entry_fields = {
+        "status": "on_duty",
+        "start_time": dispute.proposed_start_time,
+        "end_time": dispute.proposed_end_time,
+        "ot_start_time": ot_start,
+        "ot_end_time": ot_end,
+    }
+    if entry is not None:
+        entry = update_entry(db, entry.id, entry_fields)
+    else:
+        entry = create_entry(
+            db,
+            work_date=dispute.work_date,
+            name=emp.name,
+            status="on_duty",
+            start_time=dispute.proposed_start_time,
+            end_time=dispute.proposed_end_time,
+            ot_start_time=ot_start,
+            ot_end_time=ot_end,
+        )
+
+    dispute.status = "confirmed"
+    dispute.resolved_at = datetime.now(timezone.utc)
+    dispute.resolved_entry_id = entry.id
+    db.flush()
+
+    return _admin_dispute_to_dict(dispute, emp.name)
+
+
+def reject_dispute(db: Session, dispute_id: UUID) -> dict:
+    dispute = _get_dispute_or_raise(db, dispute_id)
+    _require_pending(dispute)
+
+    emp = db.get(Employee, dispute.employee_id)
+    assert emp is not None
+
+    dispute.status = "rejected"
+    dispute.resolved_at = datetime.now(timezone.utc)
+    db.flush()
+
+    return _admin_dispute_to_dict(dispute, emp.name)

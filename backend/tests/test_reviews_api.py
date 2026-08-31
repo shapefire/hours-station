@@ -1,7 +1,7 @@
-def _seed_duty(client, day="2026-08-10"):
+def _seed_duty(client, day="2026-08-10", name="核审甲"):
     r = client.post("/api/entries", json={
         "work_date": day,
-        "name": "核审甲",
+        "name": name,
         "status": "on_duty",
         "start_time": "08:00",
         "end_time": "17:00",
@@ -82,3 +82,98 @@ def test_submit_rejects_incomplete_ot_pair(client):
         }],
     })
     assert r.status_code == 400
+
+
+def test_confirm_updates_one_day_only(client):
+    _seed_duty(client, "2026-08-10", name="核审确认甲")
+    client.post("/api/entries", json={
+        "work_date": "2026-08-12", "name": "核审确认甲",
+        "status": "on_duty", "start_time": "08:00", "end_time": "16:00",
+    })
+    client.post("/api/reviews/submit", json={
+        "name": "核审确认甲", "year": 2026, "month": 8,
+        "disputes": [
+            {
+                "work_date": "2026-08-10",
+                "proposed_start_time": "09:00",
+                "proposed_end_time": "18:00",
+                "proposed_ot_start_time": None,
+                "proposed_ot_end_time": None,
+                "note": "清加班",
+            },
+            {
+                "work_date": "2026-08-12",
+                "proposed_start_time": "10:00",
+                "proposed_end_time": "19:00",
+                "proposed_ot_start_time": "19:00",
+                "proposed_ot_end_time": "20:00",
+                "note": None,
+            },
+        ],
+    })
+    pending = client.get("/api/reviews/disputes", params={"status": "pending"}).json()
+    d10 = next(d for d in pending if d["work_date"] == "2026-08-10")
+    d12 = next(d for d in pending if d["work_date"] == "2026-08-12")
+
+    ok = client.post(f"/api/reviews/disputes/{d10['id']}/confirm")
+    assert ok.status_code == 200
+
+    e10 = client.get("/api/entries", params={"date": "2026-08-10"}).json()
+    row10 = next(e for e in e10 if e["employee_name"] == "核审确认甲")
+    assert row10["start_time"] == "09:00"
+    assert row10["end_time"] == "18:00"
+    assert row10["ot_start_time"] is None
+    assert row10["status"] == "on_duty"
+
+    e12 = client.get("/api/entries", params={"date": "2026-08-12"}).json()
+    row12 = next(e for e in e12 if e["employee_name"] == "核审确认甲")
+    assert row12["start_time"] == "08:00"
+
+    still = client.get("/api/reviews/disputes", params={"status": "pending"}).json()
+    assert any(d["id"] == d12["id"] for d in still)
+
+
+def test_confirm_creates_entry_for_unassigned_day(client):
+    client.post("/api/entries", json={
+        "work_date": "2026-08-01", "name": "核审乙",
+        "status": "on_duty", "start_time": "08:00", "end_time": "16:00",
+    })
+    client.post("/api/reviews/submit", json={
+        "name": "核审乙", "year": 2026, "month": 8,
+        "disputes": [{
+            "work_date": "2026-08-20",
+            "proposed_start_time": "08:00",
+            "proposed_end_time": "17:00",
+            "proposed_ot_start_time": "17:00",
+            "proposed_ot_end_time": "18:30",
+            "note": "漏登记",
+        }],
+    })
+    d = client.get("/api/reviews/disputes", params={"status": "pending"}).json()[0]
+    assert client.post(f"/api/reviews/disputes/{d['id']}/confirm").status_code == 200
+    rows = client.get("/api/entries", params={"date": "2026-08-20"}).json()
+    row = next(e for e in rows if e["employee_name"] == "核审乙")
+    assert row["status"] == "on_duty"
+    assert row["ot_end_time"] == "18:30"
+
+
+def test_reject_does_not_change_entry(client):
+    _seed_duty(client, "2026-08-15", name="核审拒绝甲")
+    client.post("/api/reviews/submit", json={
+        "name": "核审拒绝甲", "year": 2026, "month": 8,
+        "disputes": [{
+            "work_date": "2026-08-15",
+            "proposed_start_time": "10:00",
+            "proposed_end_time": "19:00",
+            "proposed_ot_start_time": None,
+            "proposed_ot_end_time": None,
+            "note": None,
+        }],
+    })
+    d = client.get("/api/reviews/disputes", params={"status": "pending"}).json()[0]
+    assert client.post(f"/api/reviews/disputes/{d['id']}/reject").status_code == 200
+    row = next(
+        e for e in client.get("/api/entries", params={"date": "2026-08-15"}).json()
+        if e["employee_name"] == "核审拒绝甲"
+    )
+    assert row["start_time"] == "08:00"
