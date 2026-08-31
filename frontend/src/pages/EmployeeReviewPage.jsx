@@ -102,17 +102,20 @@ export default function EmployeeReviewPage() {
       try {
         setLoading(true)
         setError(null)
+        setMonthData(null)
+        setDraftDisputes(new Map())
+        setExpandedDays(new Set())
         const data = await api.get(
           `/api/reviews/employee-month?name=${encodeURIComponent(name)}&year=${year}&month=${month}`,
         )
-        if (seq !== fetchSeqRef.current) return
+        if (seq !== fetchSeqRef.current) return null
         setMonthData(data)
-        setDraftDisputes(new Map())
-        setExpandedDays(new Set())
+        return data
       } catch (err) {
-        if (seq !== fetchSeqRef.current) return
+        if (seq !== fetchSeqRef.current) return null
         setMonthData(null)
         setError(err.message || '加载核审数据失败')
+        throw err
       } finally {
         if (seq === fetchSeqRef.current) {
           setLoading(false)
@@ -124,19 +127,43 @@ export default function EmployeeReviewPage() {
 
   useEffect(() => {
     if (!enteredName) return
-    fetchMonth(enteredName, viewYear, viewMonth)
-  }, [enteredName, viewYear, viewMonth, fetchMonth])
+    if (
+      monthData?.year === viewYear &&
+      monthData?.month === viewMonth &&
+      monthData?.name === enteredName
+    ) {
+      return
+    }
+    fetchMonth(enteredName, viewYear, viewMonth).catch(() => {})
+  }, [enteredName, viewYear, viewMonth, fetchMonth, monthData])
 
-  function handleEnter() {
+  async function handleEnter() {
     const trimmed = nameInput.trim()
     if (!trimmed) {
       setError('请输入姓名')
       return
     }
-    setEnteredName(trimmed)
-    setViewYear(defaultYm.year)
-    setViewMonth(defaultYm.month)
     setSubmitError(null)
+    try {
+      await fetchMonth(trimmed, defaultYm.year, defaultYm.month)
+      setViewYear(defaultYm.year)
+      setViewMonth(defaultYm.month)
+      setEnteredName(trimmed)
+    } catch {
+      // Stay on name gate; fetchMonth already set error.
+    }
+  }
+
+  function handleChangeName() {
+    fetchSeqRef.current += 1
+    setEnteredName(null)
+    setMonthData(null)
+    setDraftDisputes(new Map())
+    setExpandedDays(new Set())
+    setError(null)
+    setSubmitError(null)
+    setLoading(false)
+    setNameInput('')
   }
 
   function handleMonthSelect(event) {
@@ -257,8 +284,8 @@ export default function EmployeeReviewPage() {
               autoComplete="name"
             />
           </label>
-          <button type="button" className="btn btn--primary" onClick={handleEnter}>
-            查看
+          <button type="button" className="btn btn--primary" onClick={handleEnter} disabled={loading}>
+            {loading ? '加载中…' : '查看'}
           </button>
           {error ? <p className="review-page__error">{error}</p> : null}
         </section>
@@ -272,6 +299,13 @@ export default function EmployeeReviewPage() {
               ) : (
                 <span className="badge badge--trial">待核审</span>
               )}
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm review-page__change-name"
+                onClick={handleChangeName}
+              >
+                更换姓名
+              </button>
             </p>
             <label className="review-page__month-select">
               月份
@@ -294,7 +328,10 @@ export default function EmployeeReviewPage() {
             <p className="review-page__status">加载中…</p>
           ) : null}
 
-          {monthData ? (
+          {monthData &&
+          monthData.year === viewYear &&
+          monthData.month === viewMonth &&
+          monthData.name === enteredName ? (
             <>
               <div className="review-page__days">
                 {monthData.days.map((day) => {
