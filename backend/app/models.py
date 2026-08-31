@@ -73,3 +73,42 @@ class StoreSettings(Base):
     __tablename__ = "store_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     store_name: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class MonthlyReview(Base):
+    __tablename__ = "monthly_reviews"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "year", "month", name="uq_monthly_review_emp_ym"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    employee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("employees.id"), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TimeDispute(Base):
+    __tablename__ = "time_disputes"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "work_date", name="uq_time_dispute_emp_day"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    employee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("employees.id"), nullable=False, index=True)
+    work_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("work_entries.id"), nullable=True)
+    original_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    original_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    original_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    original_ot_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    original_ot_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    proposed_start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    proposed_end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    proposed_ot_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    proposed_ot_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", server_default="pending")
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_entry_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("work_entries.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
