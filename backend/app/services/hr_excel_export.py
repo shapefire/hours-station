@@ -5,6 +5,7 @@ from __future__ import annotations
 from calendar import monthrange
 from copy import copy
 from datetime import date
+from decimal import Decimal
 from io import BytesIO
 from collections import defaultdict
 from zipfile import ZipFile
@@ -121,12 +122,29 @@ def _set_cell(ws: Worksheet, row: int, col: int, value) -> None:
     cell.value = value
 
 
-def _total_formula(on_r: int, off_r: int) -> str:
-    return f"=SUM(E{off_r}:AI{off_r})-SUM(E{on_r}:AI{on_r})"
-
-
 def _rate_formula(off_r: int) -> str:
     return f"=COUNTIF(E{off_r}:AI{off_r},{RATE_COUNT_VALUE})"
+
+
+def _sum_day_row_hours(ws: Worksheet, row: int) -> Decimal:
+    """Sum E–AI numeric hour cells for one on/off row (blank = 0)."""
+    total = Decimal("0")
+    for d in range(31):
+        val = ws.cell(row, DAY1_COL + 1 + d).value
+        if isinstance(val, (int, float)):
+            total += Decimal(str(val))
+    return total
+
+
+def _person_total_hours(ws: Worksheet, on_r: int, off_r: int) -> Decimal:
+    """Same口径 as former AJ formula: SUM(off)-SUM(on)."""
+    return _sum_day_row_hours(ws, off_r) - _sum_day_row_hours(ws, on_r)
+
+
+def _write_person_total(ws: Worksheet, on_r: int, off_r: int) -> None:
+    """Write computed total as a number so mobile viewers show it without recalculating formulas."""
+    total = _person_total_hours(ws, on_r, off_r)
+    _set_cell(ws, on_r, TOTAL_HEADER_COL + 1, excel_hour_value(total))
 
 
 def _clear_support_value(ws: Worksheet, on_r: int, off_r: int, person_index: int) -> None:
@@ -164,7 +182,7 @@ def _ensure_aj_merge(ws: Worksheet, on_r: int, off_r: int) -> None:
 
 
 def _ensure_person_summary(ws: Worksheet, person_index: int) -> None:
-    """超出带公式槽位时，补写總計/Rate 公式并合并 AJ。"""
+    """超出带公式槽位时，合并 AJ、补写 Rate 公式；總計由 _fill_person 写数值。"""
     if person_index < TEMPLATE_PERSON_SLOTS:
         return
 
@@ -173,7 +191,6 @@ def _ensure_person_summary(ws: Worksheet, person_index: int) -> None:
     off_r = on_row0 + 2
 
     _ensure_aj_merge(ws, on_r, off_r)
-    _set_cell(ws, on_r, TOTAL_HEADER_COL + 1, _total_formula(on_r, off_r))
     _set_cell(ws, on_r, RATE_COL + 1, _rate_formula(off_r))
     _clear_triple_pay_stat(ws, on_r, off_r, person_index)
 
@@ -229,6 +246,7 @@ def _clear_person_slot(
     for r in (on_r, off_r):
         for d in range(31):
             _set_cell(ws, r, DAY1_COL + 1 + d, None)
+    _set_cell(ws, on_r, TOTAL_HEADER_COL + 1, None)
     _clear_support_value(ws, on_r, off_r, person_index)
     _clear_triple_pay_stat(ws, on_r, off_r, person_index)
 
@@ -332,3 +350,4 @@ def _fill_person(
 
     _clear_support_value(ws, on_r, off_r, index)
     _clear_triple_pay_stat(ws, on_r, off_r, index)
+    _write_person_total(ws, on_r, off_r)
