@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import api from '../api/client.js'
 import TimeField from '../components/TimeField.jsx'
 import { allowedReviewMonths, defaultReviewYearMonth } from '../utils/reviewMonth.js'
@@ -72,21 +73,22 @@ function validateDraft(draft) {
 }
 
 export default function EmployeeReviewPage() {
+  const { accessToken } = useParams()
   const defaultYm = useMemo(() => defaultReviewYearMonth(), [])
   const allowedMonths = useMemo(() => allowedReviewMonths(), [])
 
-  const [nameInput, setNameInput] = useState('')
-  const [enteredName, setEnteredName] = useState(null)
   const [viewYear, setViewYear] = useState(defaultYm.year)
   const [viewMonth, setViewMonth] = useState(defaultYm.month)
   const [monthData, setMonthData] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitError, setSubmitError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [draftDisputes, setDraftDisputes] = useState(() => new Map())
   const [expandedDays, setExpandedDays] = useState(() => new Set())
   const fetchSeqRef = useRef(0)
+
+  const displayName = monthData?.name ?? null
 
   const disputesByDate = useMemo(() => {
     const map = new Map()
@@ -97,7 +99,7 @@ export default function EmployeeReviewPage() {
   }, [monthData])
 
   const fetchMonth = useCallback(
-    async (name, year, month) => {
+    async (token, year, month) => {
       const seq = ++fetchSeqRef.current
       try {
         setLoading(true)
@@ -106,7 +108,7 @@ export default function EmployeeReviewPage() {
         setDraftDisputes(new Map())
         setExpandedDays(new Set())
         const data = await api.get(
-          `/api/reviews/employee-month?name=${encodeURIComponent(name)}&year=${year}&month=${month}`,
+          `/api/reviews/employee-month?token=${encodeURIComponent(token)}&year=${year}&month=${month}`,
         )
         if (seq !== fetchSeqRef.current) return null
         setMonthData(data)
@@ -115,7 +117,7 @@ export default function EmployeeReviewPage() {
         if (seq !== fetchSeqRef.current) return null
         setMonthData(null)
         setError(err.message || '加载核审数据失败')
-        throw err
+        return null
       } finally {
         if (seq === fetchSeqRef.current) {
           setLoading(false)
@@ -126,47 +128,9 @@ export default function EmployeeReviewPage() {
   )
 
   useEffect(() => {
-    if (!enteredName) return
-    if (
-      monthData?.year === viewYear &&
-      monthData?.month === viewMonth &&
-      monthData?.name === enteredName
-    ) {
-      return
-    }
-    fetchMonth(enteredName, viewYear, viewMonth).catch(() => {})
-  }, [enteredName, viewYear, viewMonth, fetchMonth, monthData])
-
-  async function handleEnter() {
-    const trimmed = nameInput.trim()
-    if (!trimmed) {
-      setError('请输入姓名')
-      return
-    }
-    setSubmitError(null)
-    try {
-      const data = await fetchMonth(trimmed, defaultYm.year, defaultYm.month)
-      if (!data) return
-      setViewYear(defaultYm.year)
-      setViewMonth(defaultYm.month)
-      setEnteredName(data.name)
-      setNameInput(data.name)
-    } catch {
-      // Stay on name gate; fetchMonth already set error.
-    }
-  }
-
-  function handleChangeName() {
-    fetchSeqRef.current += 1
-    setEnteredName(null)
-    setMonthData(null)
-    setDraftDisputes(new Map())
-    setExpandedDays(new Set())
-    setError(null)
-    setSubmitError(null)
-    setLoading(false)
-    setNameInput('')
-  }
+    if (!accessToken) return
+    fetchMonth(accessToken, viewYear, viewMonth)
+  }, [accessToken, viewYear, viewMonth, fetchMonth])
 
   function handleMonthSelect(event) {
     const [year, month] = event.target.value.split('-').map(Number)
@@ -220,7 +184,7 @@ export default function EmployeeReviewPage() {
   }
 
   async function handleSubmit() {
-    if (!enteredName || !monthData || monthData.reviewed || submitting) return
+    if (!accessToken || !monthData || monthData.reviewed || submitting) return
 
     const entries = [...draftDisputes.entries()]
     for (const [dateKey, draft] of entries) {
@@ -240,7 +204,7 @@ export default function EmployeeReviewPage() {
     setSubmitError(null)
     try {
       await api.post('/api/reviews/submit', {
-        name: enteredName,
+        token: accessToken,
         year: viewYear,
         month: viewMonth,
         disputes: entries.map(([work_date, draft]) => ({
@@ -252,7 +216,7 @@ export default function EmployeeReviewPage() {
           note: draft.note?.trim() || null,
         })),
       })
-      await fetchMonth(enteredName, viewYear, viewMonth)
+      await fetchMonth(accessToken, viewYear, viewMonth)
     } catch (err) {
       setSubmitError(err.message || '提交失败')
     } finally {
@@ -262,52 +226,38 @@ export default function EmployeeReviewPage() {
 
   const selectedMonthKey = `${viewYear}-${viewMonth}`
 
+  if (!accessToken) {
+    return (
+      <div className="review-page">
+        <p className="review-page__error">链接无效，请向管理员索取专属核审链接。</p>
+      </div>
+    )
+  }
+
   return (
     <div className="review-page">
       <header className="review-page__header">
         <div>
           <h1 className="review-page__title">月度排班核对</h1>
-          <p className="review-page__subtitle">输入花名册姓名（或导出短名）查看近月排班；有误可提异议后确认核审</p>
+          <p className="review-page__subtitle">请核对您的排班时段；如有误可提出异议后确认核审</p>
         </div>
       </header>
 
-      {!enteredName ? (
-        <section className="review-page__gate">
-          <label className="review-page__gate-label">
-            姓名
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(event) => setNameInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleEnter()
-              }}
-              placeholder="花名册姓名或导出短名"
-              autoComplete="name"
-            />
-          </label>
-          <button type="button" className="btn btn--primary" onClick={handleEnter} disabled={loading}>
-            {loading ? '加载中…' : '查看'}
-          </button>
-          {error ? <p className="review-page__error">{error}</p> : null}
+      {error && !monthData ? (
+        <section className="review-page__gate review-page__gate--info">
+          <p className="review-page__error">{error}</p>
+          <p>请确认链接完整，或联系管理员重新发送专属链接。</p>
         </section>
       ) : (
         <>
           <div className="review-page__toolbar">
             <p className="review-page__employee">
-              <span className="review-page__employee-name">{enteredName}</span>
+              <span className="review-page__employee-name">{displayName || '加载中…'}</span>
               {monthData?.reviewed ? (
                 <span className="badge badge--on-duty">已核审</span>
-              ) : (
+              ) : monthData ? (
                 <span className="badge badge--trial">待核审</span>
-              )}
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm review-page__change-name"
-                onClick={handleChangeName}
-              >
-                更换姓名
-              </button>
+              ) : null}
             </p>
             <label className="review-page__month-select">
               月份
@@ -330,24 +280,20 @@ export default function EmployeeReviewPage() {
             <p className="review-page__status">加载中…</p>
           ) : null}
 
-          {monthData &&
-          monthData.year === viewYear &&
-          monthData.month === viewMonth &&
-          monthData.name === enteredName ? (
+          {monthData && monthData.year === viewYear && monthData.month === viewMonth ? (
             <>
               {(() => {
                 const assigned = monthData.days.filter((d) => d.status !== 'unassigned').length
                 if (assigned > 0) {
                   return (
                     <p className="review-page__hint" role="status">
-                      已找到 {monthData.name} · {monthLabel({ year: monthData.year, month: monthData.month })} ·
-                      有排班 {assigned} 天
+                      {monthLabel({ year: monthData.year, month: monthData.month })} · 有排班 {assigned} 天
                     </p>
                   )
                 }
                 return (
                   <p className="review-page__hint review-page__hint--warn" role="status">
-                    已找到人员「{monthData.name}」，但 {monthLabel({ year: monthData.year, month: monthData.month })}{' '}
+                    {monthLabel({ year: monthData.year, month: monthData.month })}{' '}
                     暂无排班记录（整月未安排）。可切换月份，或对未安排日提出异议补登时段。
                   </p>
                 )

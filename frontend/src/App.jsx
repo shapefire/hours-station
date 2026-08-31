@@ -4,6 +4,7 @@ import ReviewShell from './components/ReviewShell.jsx'
 import CalendarPage from './pages/CalendarPage.jsx'
 import AdminDisputesPage from './pages/AdminDisputesPage.jsx'
 import EmployeeReviewPage from './pages/EmployeeReviewPage.jsx'
+import ReviewEntryPage from './pages/ReviewEntryPage.jsx'
 import StatsPage from './pages/StatsPage.jsx'
 
 export default function App() {
@@ -11,7 +12,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="review" element={<ReviewShell />}>
-          <Route index element={<EmployeeReviewPage />} />
+          <Route index element={<ReviewEntryPage />} />
+          <Route path="r/:accessToken" element={<EmployeeReviewPage />} />
         </Route>
         <Route element={<AppShell />}>
           <Route index element={<CalendarPage />} />

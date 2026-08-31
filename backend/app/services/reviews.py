@@ -20,34 +20,16 @@ def _month_range(year: int, month: int) -> tuple[date, date, int]:
     return month_start, month_end, days_in_month
 
 
-def _require_employee(db: Session, name: str) -> Employee:
-    cleaned = name.strip()
+def _require_employee_by_token(db: Session, token: str) -> Employee:
+    cleaned = token.strip()
     if not cleaned:
-        raise KeyError("花名册中无此人，请使用花名册登记的姓名")
-
-    emp = db.scalars(select(Employee).where(Employee.name == cleaned)).one_or_none()
-    if emp is not None:
-        return emp
-
-    by_export = db.scalars(
-        select(Employee).where(Employee.export_name == cleaned)
-    ).all()
-    if len(by_export) == 1:
-        return by_export[0]
-    if len(by_export) > 1:
-        names = "、".join(e.name for e in by_export[:5])
-        raise ValueError(f"导出姓名对应多人，请改用花名册姓名：{names}")
-
-    partial = list(
-        db.scalars(select(Employee).where(Employee.name.contains(cleaned))).all()
-    )
-    if len(partial) == 1:
-        return partial[0]
-    if len(partial) > 1:
-        names = "、".join(e.name for e in partial[:5])
-        raise ValueError(f"姓名不唯一，请输入完整花名册姓名：{names}")
-
-    raise KeyError("花名册中无此人，请使用花名册登记的姓名")
+        raise KeyError("无效或已过期的核审链接")
+    emp = db.scalars(
+        select(Employee).where(Employee.review_access_token == cleaned)
+    ).one_or_none()
+    if emp is None:
+        raise KeyError("无效或已过期的核审链接")
+    return emp
 
 
 def _validate_proposed_times(
@@ -123,8 +105,8 @@ def _require_pending(dispute: TimeDispute) -> None:
         raise LookupError("异议已处理")
 
 
-def get_employee_month(db: Session, *, name: str, year: int, month: int) -> dict:
-    emp = _require_employee(db, name)
+def get_employee_month(db: Session, *, token: str, year: int, month: int) -> dict:
+    emp = _require_employee_by_token(db, token)
     month_start, month_end, days_in_month = _month_range(year, month)
 
     review = db.scalars(
@@ -202,12 +184,12 @@ def get_employee_month(db: Session, *, name: str, year: int, month: int) -> dict
 def submit_monthly_review(
     db: Session,
     *,
-    name: str,
+    token: str,
     year: int,
     month: int,
     disputes: list[dict],
 ) -> dict:
-    emp = _require_employee(db, name)
+    emp = _require_employee_by_token(db, token)
     month_start, month_end, _ = _month_range(year, month)
 
     existing_review = db.scalars(

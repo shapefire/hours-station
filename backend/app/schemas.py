@@ -198,6 +198,7 @@ class CalendarMonthOut(BaseModel):
 class StatsPersonOut(BaseModel):
     employee_id: UUID
     name: str
+    review_access_token: str
     attendance_days: int
     rest_days: int
     leave_days: int
@@ -415,7 +416,7 @@ class ReviewDisputeIn(BaseModel):
 
 
 class ReviewSubmitIn(BaseModel):
-    name: str = Field(..., min_length=1, max_length=64)
+    token: str = Field(..., min_length=16, max_length=64)
     year: int = Field(..., ge=1)
     month: int = Field(..., ge=1, le=12)
     disputes: list[ReviewDisputeIn] = Field(default_factory=list)

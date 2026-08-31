@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Employee, WorkEntry
+from app.services.employees import ensure_review_access_token
 from app.services.entries import entry_hours_decimal, format_entry_hours
 
 _STATUS_MAP = {
@@ -72,10 +73,13 @@ def monthly_stats(db: Session, *, year: int, month: int) -> dict:
         month_total += total
         attendance_person_days += attendance_days
         avg_hours = _format_hours(total / attendance_days) if attendance_days else None
+        employee = emp_entries[0].employee
+        review_token = ensure_review_access_token(db, employee)
         people.append(
             {
                 "employee_id": employee_id,
-                "name": emp_entries[0].employee.name,
+                "name": employee.name,
+                "review_access_token": review_token,
                 "attendance_days": attendance_days,
                 "rest_days": rest_days,
                 "leave_days": leave_days,

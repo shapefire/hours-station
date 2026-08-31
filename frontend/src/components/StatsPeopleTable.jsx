@@ -142,6 +142,20 @@ export default function StatsPeopleTable({ year, month, people }) {
     loadDays(employeeId)
   }
 
+  const [copiedId, setCopiedId] = useState(null)
+
+  async function copyReviewLink(person) {
+    if (!person.review_access_token) return
+    const url = `${window.location.origin}/review/r/${person.review_access_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedId(person.employee_id)
+      window.setTimeout(() => setCopiedId(null), 2000)
+    } catch {
+      window.prompt('请手动复制核审链接：', url)
+    }
+  }
+
   if (!people?.length) {
     return <p className="stats-page__empty">本月暂无登记员工。</p>
   }
@@ -162,6 +176,7 @@ export default function StatsPeopleTable({ year, month, people }) {
             <th scope="col">支援工时</th>
             <th scope="col">总工时</th>
             <th scope="col">日均工时</th>
+            <th scope="col">核审链接</th>
           </tr>
         </thead>
         <tbody>
@@ -217,10 +232,23 @@ export default function StatsPeopleTable({ year, month, people }) {
                       <Metric value={formatAvgHours(person.avg_hours)} unit="h" chip />
                     )}
                   </td>
+                  <td className="stats-people__link-cell">
+                    {person.review_access_token ? (
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm stats-people__copy-link"
+                        onClick={() => copyReviewLink(person)}
+                      >
+                        {copiedId === id ? '已复制' : '复制链接'}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                 </tr>
                 {open ? (
                   <tr className="stats-people__detail-row">
-                    <td colSpan={9}>
+                    <td colSpan={10}>
                       <div className="stats-people__detail">
                         {loadingId === id && !daysByEmployee[id] ? (
                           <p className="stats-page__status">加载逐日明细…</p>

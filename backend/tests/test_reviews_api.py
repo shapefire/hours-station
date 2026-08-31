@@ -12,42 +12,28 @@ def _seed_duty(client, day="2026-08-10", name="核审甲"):
     return r.json()
 
 
-def test_employee_month_requires_existing_name(client):
+def _review_token(client, name: str, year=2026, month=8) -> str:
+    r = client.get("/api/stats/monthly", params={"year": year, "month": month})
+    assert r.status_code == 200
+    person = next(p for p in r.json()["people"] if p["name"] == name)
+    token = person["review_access_token"]
+    assert token and len(token) >= 16
+    return token
+
+
+def test_employee_month_rejects_invalid_token(client):
     r = client.get("/api/reviews/employee-month", params={
-        "name": "不存在的人", "year": 2026, "month": 8,
+        "token": "not-a-valid-review-token", "year": 2026, "month": 8,
     })
     assert r.status_code == 404
-    assert "花名册" in r.json()["detail"]
-
-
-def test_employee_month_matches_export_name(client):
-    created = client.post("/api/entries", json={
-        "work_date": "2026-08-08",
-        "name": "核审短名甲",
-        "status": "on_duty",
-        "start_time": "08:00",
-        "end_time": "16:00",
-    })
-    assert created.status_code == 201
-    emp_id = created.json()["employee_id"]
-    patched = client.patch(f"/api/employees/{emp_id}", json={"export_name": "短甲"})
-    assert patched.status_code == 200
-
-    r = client.get("/api/reviews/employee-month", params={
-        "name": "短甲", "year": 2026, "month": 8,
-    })
-    assert r.status_code == 200
-    body = r.json()
-    assert body["name"] == "核审短名甲"
-    day = next(d for d in body["days"] if d["date"] == "2026-08-08")
-    assert day["status"] == "on_duty"
-    assert day["start_time"] == "08:00"
+    assert "核审链接" in r.json()["detail"]
 
 
 def test_employee_month_lists_days_and_ot(client):
     _seed_duty(client)
+    token = _review_token(client, "核审甲")
     r = client.get("/api/reviews/employee-month", params={
-        "name": "核审甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
     })
     assert r.status_code == 200
     body = r.json()
@@ -62,8 +48,9 @@ def test_employee_month_lists_days_and_ot(client):
 
 def test_submit_locks_month_and_creates_disputes(client):
     _seed_duty(client)
+    token = _review_token(client, "核审甲")
     r = client.post("/api/reviews/submit", json={
-        "name": "核审甲",
+        "token": token,
         "year": 2026,
         "month": 8,
         "disputes": [{
@@ -79,12 +66,12 @@ def test_submit_locks_month_and_creates_disputes(client):
     assert r.json()["dispute_count"] == 1
 
     again = client.post("/api/reviews/submit", json={
-        "name": "核审甲", "year": 2026, "month": 8, "disputes": [],
+        "token": token, "year": 2026, "month": 8, "disputes": [],
     })
     assert again.status_code == 409
 
     month = client.get("/api/reviews/employee-month", params={
-        "name": "核审甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
     }).json()
     assert month["reviewed"] is True
     assert len(month["disputes"]) == 1
@@ -93,8 +80,9 @@ def test_submit_locks_month_and_creates_disputes(client):
 
 def test_submit_rejects_incomplete_ot_pair(client):
     _seed_duty(client)
+    token = _review_token(client, "核审甲")
     r = client.post("/api/reviews/submit", json={
-        "name": "核审甲",
+        "token": token,
         "year": 2026,
         "month": 8,
         "disputes": [{
@@ -115,8 +103,9 @@ def test_confirm_updates_one_day_only(client):
         "work_date": "2026-08-12", "name": "核审确认甲",
         "status": "on_duty", "start_time": "08:00", "end_time": "16:00",
     })
+    token = _review_token(client, "核审确认甲")
     client.post("/api/reviews/submit", json={
-        "name": "核审确认甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
         "disputes": [
             {
                 "work_date": "2026-08-10",
@@ -163,8 +152,9 @@ def test_confirm_creates_entry_for_unassigned_day(client):
         "work_date": "2026-08-01", "name": "核审乙",
         "status": "on_duty", "start_time": "08:00", "end_time": "16:00",
     })
+    token = _review_token(client, "核审乙")
     client.post("/api/reviews/submit", json={
-        "name": "核审乙", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
         "disputes": [{
             "work_date": "2026-08-20",
             "proposed_start_time": "08:00",
@@ -184,8 +174,9 @@ def test_confirm_creates_entry_for_unassigned_day(client):
 
 def test_reject_does_not_change_entry(client):
     _seed_duty(client, "2026-08-15", name="核审拒绝甲")
+    token = _review_token(client, "核审拒绝甲")
     client.post("/api/reviews/submit", json={
-        "name": "核审拒绝甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
         "disputes": [{
             "work_date": "2026-08-15",
             "proposed_start_time": "10:00",
@@ -206,8 +197,9 @@ def test_reject_does_not_change_entry(client):
 
 def test_confirm_rejects_non_pending(client):
     _seed_duty(client, "2026-08-18", name="核审重复确认甲")
+    token = _review_token(client, "核审重复确认甲")
     client.post("/api/reviews/submit", json={
-        "name": "核审重复确认甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
         "disputes": [{
             "work_date": "2026-08-18",
             "proposed_start_time": "09:00",
@@ -229,8 +221,9 @@ def test_confirm_rejects_non_pending(client):
 
 def test_reject_rejects_non_pending(client):
     _seed_duty(client, "2026-08-19", name="核审重复拒绝甲")
+    token = _review_token(client, "核审重复拒绝甲")
     client.post("/api/reviews/submit", json={
-        "name": "核审重复拒绝甲", "year": 2026, "month": 8,
+        "token": token, "year": 2026, "month": 8,
         "disputes": [{
             "work_date": "2026-08-19",
             "proposed_start_time": "09:00",

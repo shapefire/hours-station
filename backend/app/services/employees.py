@@ -1,4 +1,5 @@
 import re
+import secrets
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal
@@ -20,6 +21,22 @@ class NameConflictError(Exception):
         super().__init__(existing_name)
 
 
+def ensure_review_access_token(db: Session, employee: Employee) -> str:
+    if employee.review_access_token:
+        return employee.review_access_token
+    for _ in range(5):
+        token = secrets.token_urlsafe(32)
+        employee.review_access_token = token
+        try:
+            with db.begin_nested():
+                db.flush()
+            return token
+        except IntegrityError:
+            employee.review_access_token = None
+            db.expire(employee)
+    raise RuntimeError("无法生成核审专属链接")
+
+
 def get_or_create_employee(db: Session, name: str) -> Employee:
     cleaned = name.strip()
     if not cleaned:
@@ -29,6 +46,7 @@ def get_or_create_employee(db: Session, name: str) -> Employee:
         if not emp.is_active:
             emp.is_active = True
             db.flush()
+        ensure_review_access_token(db, emp)
         return emp
     max_order = db.scalar(select(func.coalesce(func.max(Employee.sort_order), -1)))
     if max_order is None:
@@ -43,6 +61,7 @@ def get_or_create_employee(db: Session, name: str) -> Employee:
         if not emp.is_active:
             emp.is_active = True
             db.flush()
+    ensure_review_access_token(db, emp)
     return emp
 
 

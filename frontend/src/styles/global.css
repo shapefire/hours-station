@@ -2908,6 +2908,14 @@ textarea {
   color: var(--metric);
 }
 
+.stats-people__link-cell {
+  white-space: nowrap;
+}
+
+.stats-people__copy-link {
+  font-size: 0.8rem;
+}
+
 .stats-people__detail {
   padding-left: 0.35rem;
   animation: stats-detail-in 160ms ease;
@@ -3107,6 +3115,18 @@ textarea {
   border-radius: var(--radius-group);
   border: 1px solid var(--separator);
   background: var(--bg-elevated);
+}
+
+.review-page__gate--info {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.review-page__gate--info p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--secondary);
 }
 
 .review-page__gate-label {

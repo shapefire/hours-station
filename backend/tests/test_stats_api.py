@@ -30,6 +30,8 @@ def test_monthly_stats_summary_and_rest_days(client):
     person = body["people"][0]
     assert person["employee_id"] == a["employee_id"]
     assert person["name"] == "张三"
+    assert person["review_access_token"]
+    assert len(person["review_access_token"]) >= 16
     assert person["attendance_days"] == 2
     assert person["support_days"] == 0
     assert person["support_hours"] == "0.0"
