@@ -2,6 +2,7 @@ import calendar
 from datetime import date, time
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Employee, MonthlyReview, TimeDispute, WorkEntry
@@ -223,9 +224,13 @@ def submit_monthly_review(
         )
 
     review = MonthlyReview(employee_id=emp.id, year=year, month=month)
-    db.add(review)
-    for row in dispute_rows:
-        db.add(row)
-    db.flush()
+    try:
+        with db.begin_nested():
+            db.add(review)
+            for row in dispute_rows:
+                db.add(row)
+            db.flush()
+    except IntegrityError as exc:
+        raise LookupError("该月已核审") from exc
 
     return {"reviewed": True, "dispute_count": len(dispute_rows)}

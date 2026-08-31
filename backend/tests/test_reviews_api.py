@@ -1,6 +1,3 @@
-from datetime import date
-
-
 def _seed_duty(client, day="2026-08-10"):
     r = client.post("/api/entries", json={
         "work_date": day,
