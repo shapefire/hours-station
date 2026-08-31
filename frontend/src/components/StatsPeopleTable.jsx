@@ -147,12 +147,30 @@ export default function StatsPeopleTable({ year, month, people }) {
   async function copyReviewLink(person) {
     if (!person.review_access_token) return
     const url = `${window.location.origin}/review/r/${person.review_access_token}`
-    try {
-      await navigator.clipboard.writeText(url)
+    const markCopied = () => {
       setCopiedId(person.employee_id)
       window.setTimeout(() => setCopiedId(null), 2000)
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      markCopied()
+      return
     } catch {
-      window.prompt('请手动复制核审链接：', url)
+      // Clipboard API may be blocked; fall back to a silent copy.
+    }
+    try {
+      const area = document.createElement('textarea')
+      area.value = url
+      area.setAttribute('readonly', '')
+      area.style.position = 'fixed'
+      area.style.left = '-9999px'
+      document.body.appendChild(area)
+      area.select()
+      document.execCommand('copy')
+      document.body.removeChild(area)
+      markCopied()
+    } catch {
+      // No dialog — user can retry.
     }
   }
 
