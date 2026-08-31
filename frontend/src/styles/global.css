@@ -3242,12 +3242,60 @@ textarea {
 
 .review-day__original {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
+  flex-direction: column;
+  gap: 0.55rem;
   font-size: 0.88rem;
   color: var(--secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.review-day__schedule {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.review-day__schedule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+}
+
+.review-day__schedule-row dt {
+  margin: 0;
+  min-width: 3.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.review-day__schedule-row dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.review-day__segment-hours .metric__value,
+.review-day__segment-hours .metric__unit {
+  font-size: 0.82rem;
+}
+
+.review-day__hours-total {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+  border-top: 1px dashed color-mix(in srgb, var(--separator) 80%, transparent);
+}
+
+.review-day__hours-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .review-day__times {

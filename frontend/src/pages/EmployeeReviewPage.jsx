@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../api/client.js'
+import Metric from '../components/Metric.jsx'
 import TimeField from '../components/TimeField.jsx'
 import { allowedReviewMonths, defaultReviewYearMonth } from '../utils/reviewMonth.js'
 
@@ -27,13 +28,38 @@ function formatDisplayDate(dateKey) {
 }
 
 function formatTimeRange(start, end) {
-  if (!start || !end) return '—'
+  if (!start || !end) return null
   return `${start}–${end}`
 }
 
-function formatOtRange(start, end) {
-  if (!start || !end) return null
-  return `加班 ${start}–${end}`
+function dayScheduleRows(day) {
+  if (day.status === 'unassigned') return []
+
+  const rows = []
+  const mainLabel =
+    day.status === 'support' ? '支援时段' : day.status === 'rest' ? '休息时段' : day.status === 'leave' ? '请假时段' : '正班'
+
+  if (day.start_time && day.end_time) {
+    rows.push({
+      key: 'main',
+      label: mainLabel,
+      range: formatTimeRange(day.start_time, day.end_time),
+      hours: day.main_hours,
+    })
+  } else if (day.status === 'support') {
+    rows.push({ key: 'support', label: '支援', range: null, hours: null })
+  }
+
+  if (day.ot_start_time && day.ot_end_time) {
+    rows.push({
+      key: 'ot',
+      label: '加班',
+      range: formatTimeRange(day.ot_start_time, day.ot_end_time),
+      hours: day.ot_hours,
+    })
+  }
+
+  return rows
 }
 
 function monthLabel({ year, month }) {
@@ -303,7 +329,7 @@ export default function EmployeeReviewPage() {
                   const dispute = disputesByDate.get(day.date)
                   const isExpanded = expandedDays.has(day.date)
                   const draft = draftDisputes.get(day.date)
-                  const otText = formatOtRange(day.ot_start_time, day.ot_end_time)
+                  const scheduleRows = dayScheduleRows(day)
 
                   return (
                     <article key={day.date} className="review-day">
@@ -315,10 +341,29 @@ export default function EmployeeReviewPage() {
                       </div>
 
                       <div className="review-day__original">
-                        <span className="review-day__times">
-                          {formatTimeRange(day.start_time, day.end_time)}
-                        </span>
-                        {otText ? <span className="review-day__ot">{otText}</span> : null}
+                        {scheduleRows.length ? (
+                          <dl className="review-day__schedule">
+                            {scheduleRows.map((row) => (
+                              <div key={row.key} className="review-day__schedule-row">
+                                <dt>{row.label}</dt>
+                                <dd>
+                                  {row.range ? <span className="review-day__times">{row.range}</span> : null}
+                                  {row.hours ? (
+                                    <Metric value={row.hours} unit="h" chip className="review-day__segment-hours" />
+                                  ) : null}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : (
+                          <span className="review-day__times">—</span>
+                        )}
+                        {day.effective_hours ? (
+                          <div className="review-day__hours-total">
+                            <span className="review-day__hours-label">当日工时</span>
+                            <Metric value={day.effective_hours} unit="h" chip />
+                          </div>
+                        ) : null}
                       </div>
 
                       {monthData.reviewed && dispute ? (
@@ -330,7 +375,7 @@ export default function EmployeeReviewPage() {
                             </span>
                           </div>
                           <p className="dispute-card__proposed">
-                            建议 {formatTimeRange(dispute.proposed_start_time, dispute.proposed_end_time)}
+                            建议 {dispute.proposed_start_time}–{dispute.proposed_end_time}
                             {dispute.proposed_ot_start_time && dispute.proposed_ot_end_time
                               ? ` · 加班 ${dispute.proposed_ot_start_time}–${dispute.proposed_ot_end_time}`
                               : dispute.proposed_ot_start_time || dispute.proposed_ot_end_time

@@ -356,6 +356,9 @@ class ReviewDayOut(BaseModel):
     ot_start_time: time | None = None
     ot_end_time: time | None = None
     entry_id: UUID | None = None
+    effective_hours: str | None = None
+    main_hours: str | None = None
+    ot_hours: str | None = None
 
     @field_serializer("start_time", "end_time", "ot_start_time", "ot_end_time")
     def serialize_time(self, value: time | None) -> str | None:

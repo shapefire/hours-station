@@ -7,7 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Employee, MonthlyReview, TimeDispute, WorkEntry
-from app.services.entries import _normalize_ot_times, create_entry, format_effective_hours, update_entry
+from app.services.entries import _normalize_ot_times, create_entry, entry_hours_decimal, format_effective_hours, format_entry_hours, update_entry
+from app.services.hours import effective_hours
 
 
 def _month_range(year: int, month: int) -> tuple[date, date, int]:
@@ -42,6 +43,32 @@ def _validate_proposed_times(
         raise ValueError("到岗必须填写开始与结束时间")
     format_effective_hours(start, end)
     return _normalize_ot_times(ot_start, ot_end)
+
+
+def _day_hours_fields(entry: WorkEntry | None) -> dict:
+    if entry is None:
+        return {
+            "effective_hours": None,
+            "main_hours": None,
+            "ot_hours": None,
+        }
+    skip = bool(getattr(entry, "skip_deduction", False))
+    main_hours = None
+    if entry.start_time is not None and entry.end_time is not None:
+        main_hours = f"{effective_hours(entry.start_time, entry.end_time, skip_deduction=skip):.1f}"
+    ot_hours = None
+    if entry.ot_start_time is not None and entry.ot_end_time is not None:
+        ot_hours = f"{effective_hours(entry.ot_start_time, entry.ot_end_time, skip_deduction=skip):.1f}"
+    effective = None
+    if entry.status in ("on_duty", "support"):
+        effective = format_entry_hours(entry)
+    elif entry.status in ("rest", "leave") and entry_hours_decimal(entry) > 0:
+        effective = format_entry_hours(entry)
+    return {
+        "effective_hours": effective,
+        "main_hours": main_hours,
+        "ot_hours": ot_hours,
+    }
 
 
 def _entry_snapshot(entry: WorkEntry | None) -> dict:
@@ -142,6 +169,7 @@ def get_employee_month(db: Session, *, token: str, year: int, month: int) -> dic
                     "ot_start_time": entry.ot_start_time,
                     "ot_end_time": entry.ot_end_time,
                     "entry_id": entry.id,
+                    **_day_hours_fields(entry),
                 }
             )
         else:
@@ -154,6 +182,7 @@ def get_employee_month(db: Session, *, token: str, year: int, month: int) -> dic
                     "ot_start_time": None,
                     "ot_end_time": None,
                     "entry_id": None,
+                    **_day_hours_fields(None),
                 }
             )
 

@@ -44,6 +44,9 @@ def test_employee_month_lists_days_and_ot(client):
     assert day["end_time"] == "17:00"
     assert day["ot_start_time"] == "17:00"
     assert day["ot_end_time"] == "18:00"
+    assert day["main_hours"] == "8.5"
+    assert day["ot_hours"] == "1.0"
+    assert day["effective_hours"] == "9.5"
 
 
 def test_submit_locks_month_and_creates_disputes(client):
