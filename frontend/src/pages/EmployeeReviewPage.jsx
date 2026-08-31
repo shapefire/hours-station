@@ -145,10 +145,12 @@ export default function EmployeeReviewPage() {
     }
     setSubmitError(null)
     try {
-      await fetchMonth(trimmed, defaultYm.year, defaultYm.month)
+      const data = await fetchMonth(trimmed, defaultYm.year, defaultYm.month)
+      if (!data) return
       setViewYear(defaultYm.year)
       setViewMonth(defaultYm.month)
-      setEnteredName(trimmed)
+      setEnteredName(data.name)
+      setNameInput(data.name)
     } catch {
       // Stay on name gate; fetchMonth already set error.
     }
@@ -264,8 +266,8 @@ export default function EmployeeReviewPage() {
     <div className="review-page">
       <header className="review-page__header">
         <div>
-          <h1 className="review-page__title">工时核审</h1>
-          <p className="review-page__subtitle">核对当月排班，如有误可提出异议并确认核审</p>
+          <h1 className="review-page__title">月度排班核对</h1>
+          <p className="review-page__subtitle">输入花名册姓名（或导出短名）查看近月排班；有误可提异议后确认核审</p>
         </div>
       </header>
 
@@ -280,7 +282,7 @@ export default function EmployeeReviewPage() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') handleEnter()
               }}
-              placeholder="输入花名册姓名"
+              placeholder="花名册姓名或导出短名"
               autoComplete="name"
             />
           </label>
@@ -333,6 +335,23 @@ export default function EmployeeReviewPage() {
           monthData.month === viewMonth &&
           monthData.name === enteredName ? (
             <>
+              {(() => {
+                const assigned = monthData.days.filter((d) => d.status !== 'unassigned').length
+                if (assigned > 0) {
+                  return (
+                    <p className="review-page__hint" role="status">
+                      已找到 {monthData.name} · {monthLabel({ year: monthData.year, month: monthData.month })} ·
+                      有排班 {assigned} 天
+                    </p>
+                  )
+                }
+                return (
+                  <p className="review-page__hint review-page__hint--warn" role="status">
+                    已找到人员「{monthData.name}」，但 {monthLabel({ year: monthData.year, month: monthData.month })}{' '}
+                    暂无排班记录（整月未安排）。可切换月份，或对未安排日提出异议补登时段。
+                  </p>
+                )
+              })()}
               <div className="review-page__days">
                 {monthData.days.map((day) => {
                   const dispute = disputesByDate.get(day.date)

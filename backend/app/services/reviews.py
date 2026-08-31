@@ -22,10 +22,32 @@ def _month_range(year: int, month: int) -> tuple[date, date, int]:
 
 def _require_employee(db: Session, name: str) -> Employee:
     cleaned = name.strip()
+    if not cleaned:
+        raise KeyError("花名册中无此人，请使用花名册登记的姓名")
+
     emp = db.scalars(select(Employee).where(Employee.name == cleaned)).one_or_none()
-    if emp is None:
-        raise KeyError("员工不存在")
-    return emp
+    if emp is not None:
+        return emp
+
+    by_export = db.scalars(
+        select(Employee).where(Employee.export_name == cleaned)
+    ).all()
+    if len(by_export) == 1:
+        return by_export[0]
+    if len(by_export) > 1:
+        names = "、".join(e.name for e in by_export[:5])
+        raise ValueError(f"导出姓名对应多人，请改用花名册姓名：{names}")
+
+    partial = list(
+        db.scalars(select(Employee).where(Employee.name.contains(cleaned))).all()
+    )
+    if len(partial) == 1:
+        return partial[0]
+    if len(partial) > 1:
+        names = "、".join(e.name for e in partial[:5])
+        raise ValueError(f"姓名不唯一，请输入完整花名册姓名：{names}")
+
+    raise KeyError("花名册中无此人，请使用花名册登记的姓名")
 
 
 def _validate_proposed_times(

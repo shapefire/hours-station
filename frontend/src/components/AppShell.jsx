@@ -5,7 +5,6 @@ import SettingsModal from './SettingsModal.jsx'
 const navItems = [
   { to: '/', label: '工作日历', end: true },
   { to: '/stats', label: '统计看板', end: false },
-  { to: '/review', label: '工时核审', end: true },
   { to: '/review/admin', label: '异议审核', end: false },
 ]
 

@@ -17,6 +17,31 @@ def test_employee_month_requires_existing_name(client):
         "name": "不存在的人", "year": 2026, "month": 8,
     })
     assert r.status_code == 404
+    assert "花名册" in r.json()["detail"]
+
+
+def test_employee_month_matches_export_name(client):
+    created = client.post("/api/entries", json={
+        "work_date": "2026-08-08",
+        "name": "核审短名甲",
+        "status": "on_duty",
+        "start_time": "08:00",
+        "end_time": "16:00",
+    })
+    assert created.status_code == 201
+    emp_id = created.json()["employee_id"]
+    patched = client.patch(f"/api/employees/{emp_id}", json={"export_name": "短甲"})
+    assert patched.status_code == 200
+
+    r = client.get("/api/reviews/employee-month", params={
+        "name": "短甲", "year": 2026, "month": 8,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "核审短名甲"
+    day = next(d for d in body["days"] if d["date"] == "2026-08-08")
+    assert day["status"] == "on_duty"
+    assert day["start_time"] == "08:00"
 
 
 def test_employee_month_lists_days_and_ot(client):
