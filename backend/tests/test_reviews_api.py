@@ -177,3 +177,49 @@ def test_reject_does_not_change_entry(client):
         if e["employee_name"] == "核审拒绝甲"
     )
     assert row["start_time"] == "08:00"
+
+
+def test_confirm_rejects_non_pending(client):
+    _seed_duty(client, "2026-08-18", name="核审重复确认甲")
+    client.post("/api/reviews/submit", json={
+        "name": "核审重复确认甲", "year": 2026, "month": 8,
+        "disputes": [{
+            "work_date": "2026-08-18",
+            "proposed_start_time": "09:00",
+            "proposed_end_time": "18:00",
+            "proposed_ot_start_time": None,
+            "proposed_ot_end_time": None,
+            "note": None,
+        }],
+    })
+    pending = client.get("/api/reviews/disputes", params={"status": "pending"}).json()
+    d = next(x for x in pending if x["employee_name"] == "核审重复确认甲")
+
+    first = client.post(f"/api/reviews/disputes/{d['id']}/confirm")
+    assert first.status_code == 200
+
+    again = client.post(f"/api/reviews/disputes/{d['id']}/confirm")
+    assert again.status_code == 409
+
+
+def test_reject_rejects_non_pending(client):
+    _seed_duty(client, "2026-08-19", name="核审重复拒绝甲")
+    client.post("/api/reviews/submit", json={
+        "name": "核审重复拒绝甲", "year": 2026, "month": 8,
+        "disputes": [{
+            "work_date": "2026-08-19",
+            "proposed_start_time": "09:00",
+            "proposed_end_time": "18:00",
+            "proposed_ot_start_time": None,
+            "proposed_ot_end_time": None,
+            "note": None,
+        }],
+    })
+    pending = client.get("/api/reviews/disputes", params={"status": "pending"}).json()
+    d = next(x for x in pending if x["employee_name"] == "核审重复拒绝甲")
+
+    first = client.post(f"/api/reviews/disputes/{d['id']}/reject")
+    assert first.status_code == 200
+
+    again = client.post(f"/api/reviews/disputes/{d['id']}/reject")
+    assert again.status_code == 409
