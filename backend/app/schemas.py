@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Literal
 from uuid import UUID
 
@@ -345,3 +345,82 @@ class RosterImportCommitOut(BaseModel):
     created: int
     updated: int
     day_notes_upserted: int
+
+
+class ReviewDayOut(BaseModel):
+    date: date
+    status: str  # on_duty|rest|leave|support|unassigned
+    start_time: time | None = None
+    end_time: time | None = None
+    ot_start_time: time | None = None
+    ot_end_time: time | None = None
+    entry_id: UUID | None = None
+
+    @field_serializer("start_time", "end_time", "ot_start_time", "ot_end_time")
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")
+
+
+class ReviewDisputeOut(BaseModel):
+    id: UUID
+    work_date: date
+    status: str
+    original_status: str
+    original_start_time: time | None = None
+    original_end_time: time | None = None
+    original_ot_start_time: time | None = None
+    original_ot_end_time: time | None = None
+    proposed_start_time: time
+    proposed_end_time: time
+    proposed_ot_start_time: time | None = None
+    proposed_ot_end_time: time | None = None
+    note: str | None = None
+
+    @field_serializer(
+        "original_start_time",
+        "original_end_time",
+        "original_ot_start_time",
+        "original_ot_end_time",
+        "proposed_start_time",
+        "proposed_end_time",
+        "proposed_ot_start_time",
+        "proposed_ot_end_time",
+    )
+    def serialize_time(self, value: time | None) -> str | None:
+        if value is None:
+            return None
+        return value.strftime("%H:%M")
+
+
+class EmployeeMonthReviewOut(BaseModel):
+    employee_id: UUID
+    name: str
+    year: int
+    month: int
+    reviewed: bool
+    confirmed_at: datetime | None = None
+    days: list[ReviewDayOut]
+    disputes: list[ReviewDisputeOut] = Field(default_factory=list)
+
+
+class ReviewDisputeIn(BaseModel):
+    work_date: date
+    proposed_start_time: time
+    proposed_end_time: time
+    proposed_ot_start_time: time | None = None
+    proposed_ot_end_time: time | None = None
+    note: str | None = None
+
+
+class ReviewSubmitIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+    year: int = Field(..., ge=1)
+    month: int = Field(..., ge=1, le=12)
+    disputes: list[ReviewDisputeIn] = Field(default_factory=list)
+
+
+class ReviewSubmitOut(BaseModel):
+    reviewed: bool
+    dispute_count: int
