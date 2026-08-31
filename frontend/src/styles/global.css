@@ -3303,6 +3303,154 @@ textarea {
   font-size: 0.88rem;
 }
 
+.review-page--admin {
+  max-width: 48rem;
+}
+
+.review-page__toolbar--admin {
+  align-items: center;
+}
+
+.review-page__filter {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--fill);
+}
+
+.review-page__filter-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label);
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.review-page__filter-btn:hover:not(:disabled) {
+  color: var(--label);
+}
+
+.review-page__filter-btn.is-active {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+}
+
+.review-page__filter-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.review-page__count {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--secondary);
+}
+
+.review-page__empty {
+  margin: 0;
+  padding: 1rem;
+  border-radius: var(--radius-group);
+  border: 1px solid var(--separator);
+  background: var(--bg-elevated);
+  color: var(--secondary);
+  font-size: 0.92rem;
+}
+
+.dispute-card--admin {
+  border-style: solid;
+  gap: 0.65rem;
+}
+
+.dispute-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.dispute-card__meta .review-day__date {
+  font-size: 1rem;
+}
+
+.dispute-card__date {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--secondary);
+}
+
+.dispute-card__compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.dispute-card__block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--fill) 55%, var(--bg-elevated));
+  border: 1px solid var(--separator);
+  min-width: 0;
+}
+
+.dispute-card__block--proposed {
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--bg0));
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.dispute-card__block-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.dispute-card__block-times {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.dispute-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+}
+
+.dispute-card__action-error {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .dispute-card__compare {
+    grid-template-columns: 1fr;
+  }
+
+  .review-page__toolbar--admin {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .review-page__filter {
+    width: 100%;
+  }
+
+  .review-page__filter-btn {
+    flex: 1;
+  }
+}
+
 /* Narrow: stack month calendar above day panel */
 @media (max-width: 900px) {
   .calendar-page__workspace {
