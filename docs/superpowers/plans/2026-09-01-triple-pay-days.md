@@ -62,11 +62,11 @@ def test_triple_pay_dates_between_range(db):
     assert triple_pay_dates_between(db, date(2026, 9, 1), date(2026, 9, 30)) == {date(2026, 9, 1), date(2026, 9, 30)}
 ```
 
-- [ ] **Step 2: 运行确认失败** —— `pytest backend/tests/test_triple_pay_days.py -v`（backend 目录下），预期 ImportError/AttributeError。
+- [ ] **Step 2: 运行确认失败** —— 在 `backend/` 目录运行 `pytest tests/test_triple_pay_days.py -v`，预期 ImportError/AttributeError。
 
 - [ ] **Step 3: 实现** `TriplePayDay` 模型（`models.py`，仿 `DayNote`：`id` PK + `work_date` 唯一 + `created_at` server_default func.now()）、migration `012`（`op.create_table("triple_pay_days", ...)`，`down_revision="011_review_access_token"`）、`triple_pay_days.py` 服务三函数（`set` 用 upsert/delete；`list` 按月过滤排序；`between` 区间过滤返回 set）。
 
-- [ ] **Step 4: 运行确认通过** —— `pytest backend/tests/test_triple_pay_days.py -v`，预期 PASS。
+- [ ] **Step 4: 运行确认通过** —— 在 `backend/` 目录运行 `pytest tests/test_triple_pay_days.py -v`，预期 PASS。
 
 - [ ] **Step 5: Commit** —— `git add backend/app/models.py backend/app/services/triple_pay_days.py backend/alembic/versions/012_triple_pay_days.py backend/tests/test_triple_pay_days.py backend/tests/conftest.py && git commit -m "feat: 三薪日数据模型与服务层"`
 
@@ -99,11 +99,11 @@ def test_put_triple_pay_day_and_calendar(client):
     assert cal["triple_pay_dates"] == []
 ```
 
-- [ ] **Step 2: 运行确认失败** —— `pytest backend/tests/test_triple_pay_days.py::test_put_triple_pay_day_and_calendar -v`，预期 404/断言失败。
+- [ ] **Step 2: 运行确认失败** —— 在 `backend/` 目录运行 `pytest tests/test_triple_pay_days.py::test_put_triple_pay_day_and_calendar -v`，预期 404/断言失败。
 
 - [ ] **Step 3: 实现** `schemas.py` 增 `TriplePayDayPut(is_triple_pay: bool)`、`TriplePayDayOut(work_date, is_triple_pay)`、`CalendarMonthOut.triple_pay_dates: list[date]`；`routers/triple_pay_days.py` 增 `PUT /{work_date}`（调 `set_triple_pay_day`）；`calendar.py` 查当月 `list_triple_pay_dates` 并入 `CalendarMonthOut`；`main.py` 注册。
 
-- [ ] **Step 4: 运行确认通过** —— `pytest backend/tests/test_triple_pay_days.py -v`，预期 PASS。
+- [ ] **Step 4: 运行确认通过** —— 在 `backend/` 目录运行 `pytest tests/test_triple_pay_days.py -v`，预期 PASS。
 
 - [ ] **Step 5: Commit** —— `git add backend/app/schemas.py backend/app/routers/triple_pay_days.py backend/app/routers/calendar.py backend/app/main.py backend/tests/test_triple_pay_days.py && git commit -m "feat: 三薪日 PUT 端点与 calendar 响应"`
 
@@ -179,11 +179,11 @@ def test_triple_pay_beyond_template_slots(client, db):
     assert ws.cell(on_r, TRIPLE_PAY_COL + 1).value in (15, 15.0)
 ```
 
-- [ ] **Step 2: 运行确认失败** —— `pytest backend/tests/test_hr_excel_export.py -k triple_pay -v`，预期断言失败（AM 格仍为 None）。
+- [ ] **Step 2: 运行确认失败** —— 在 `backend/` 目录运行 `pytest tests/test_hr_excel_export.py -k triple_pay -v`，预期断言失败（AM 格仍为 None）。
 
 - [ ] **Step 3: 实现** `_write_triple_pay`：遍历 `entries`，跳过 `status=="support"`，对 `work_date in triple_pay_dates` 的累加 `entry_hours_decimal(entry) * 2`，`excel_hour_value` 后写值槽（`person_index==0` → off_r，否则 on_r），合计为 0 则写 None；`build_export_workbook` 用 `triple_pay_dates_between(month_start, month_end)` 取集合；`_fill_person` / `_ensure_person_summary` / `_clear_person_slot` 由 `_clear_triple_pay_stat` 改为 `_write_triple_pay`（清空场景传空 entries）。
 
-- [ ] **Step 4: 运行确认通过** —— `pytest backend/tests/test_hr_excel_export.py -v`，预期 PASS（含既有导出测试无回归）。
+- [ ] **Step 4: 运行确认通过** —— 在 `backend/` 目录运行 `pytest tests/test_hr_excel_export.py -v`，预期 PASS（含既有导出测试无回归）。
 
 - [ ] **Step 5: Commit** —— `git add backend/app/services/hr_excel_export.py backend/tests/test_hr_excel_export.py && git commit -m "feat: 导出三薪列按三薪日有效工时×2 计算"`
 
