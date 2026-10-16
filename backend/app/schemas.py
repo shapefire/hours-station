@@ -193,6 +193,7 @@ class CalendarMonthOut(BaseModel):
     registered_days: int
     month_total_hours: str
     days: list[CalendarDayOut]
+    triple_pay_dates: list[date]
 
 
 class StatsPersonOut(BaseModel):
@@ -275,6 +276,15 @@ class DayNotePut(BaseModel):
 class DayNoteOut(BaseModel):
     work_date: date
     note: str | None
+
+
+class TriplePayDayPut(BaseModel):
+    is_triple_pay: bool
+
+
+class TriplePayDayOut(BaseModel):
+    work_date: date
+    is_triple_pay: bool
 
 
 class RosterImportPreviewIn(BaseModel):

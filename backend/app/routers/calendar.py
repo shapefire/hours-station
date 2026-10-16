@@ -10,6 +10,7 @@ from app.db import get_db
 from app.models import WorkEntry
 from app.schemas import CalendarDayOut, CalendarMonthOut
 from app.services.entries import entry_hours_decimal
+from app.services.triple_pay_days import list_triple_pay_dates
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
@@ -73,4 +74,5 @@ def get_calendar_month(
         registered_days=len(days),
         month_total_hours=_format_hours(month_total),
         days=days,
+        triple_pay_dates=list_triple_pay_dates(db, year, month),
     )
