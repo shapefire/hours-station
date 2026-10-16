@@ -82,6 +82,11 @@ export default function CalendarPage() {
     return map
   }, [calendar])
 
+  const triplePayDates = useMemo(
+    () => new Set(calendar?.triple_pay_dates || []),
+    [calendar],
+  )
+
   const refreshCalendar = useCallback(async () => {
     const seq = ++calendarFetchSeqRef.current
     try {
@@ -350,6 +355,18 @@ export default function CalendarPage() {
     setDayNoteError(null)
   }
 
+  async function handleToggleTriplePay() {
+    if (!selectedDate) return
+    const isTriple = triplePayDates.has(selectedDate)
+    try {
+      await api.put(`/api/triple-pay-days/${selectedDate}`, { is_triple_pay: !isTriple })
+      await refreshCalendar()
+    } catch (err) {
+      window.alert(err.message || '设置三薪日失败')
+      await refreshCalendar()
+    }
+  }
+
   async function handleRemoveEntry(entry) {
     try {
       await api.delete(`/api/entries/${entry.id}`)
@@ -520,6 +537,7 @@ export default function CalendarPage() {
           monthTotalHours={calendar?.month_total_hours ?? '0.0'}
           pasteMode={pasteMode}
           pasteSourceDate={pasteMode?.fromDate ?? null}
+          triplePayDates={triplePayDates}
           onSelectDate={handleSelectDate}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
@@ -556,6 +574,8 @@ export default function CalendarPage() {
           onSaveOvertime={handleSaveOvertime}
           dayNote={dayNoteDate === selectedDate ? dayNote : null}
           onSaveDayNote={handleSaveDayNote}
+          isTriplePay={triplePayDates.has(selectedDate)}
+          onToggleTriplePay={handleToggleTriplePay}
           year={viewYear}
           onImportSuccess={() =>
             Promise.all([refreshCalendar(), refreshEntries(), refreshDayNote()])

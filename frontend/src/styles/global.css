@@ -3693,3 +3693,39 @@ textarea {
     display: table-cell;
   }
 }
+
+/* 三薪日标记与开关 */
+.month-calendar__cell.is-triple-pay .month-calendar__day-num {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.month-calendar__triple-pay {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg0));
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.05rem 0.3rem;
+  white-space: nowrap;
+}
+
+.day-panel__triple-pay-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.day-panel__triple-pay-toggle input {
+  cursor: pointer;
+}
+
+.day-panel__triple-pay-toggle.is-on {
+  color: var(--danger);
+  font-weight: 600;
+}

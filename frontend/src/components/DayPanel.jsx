@@ -521,6 +521,8 @@ export default function DayPanel({
   onSaveOvertime,
   dayNote = null,
   onSaveDayNote,
+  isTriplePay = false,
+  onToggleTriplePay,
   year = null,
   onImportSuccess,
 }) {
@@ -615,6 +617,16 @@ export default function DayPanel({
       <header className="day-panel__header">
         <div className="day-panel__header-top">
           <h2 className="day-panel__title">{formatDisplayDate(selectedDate)}</h2>
+          <label className={`day-panel__triple-pay-toggle${isTriplePay ? ' is-on' : ''}`}>
+            <input
+              type="checkbox"
+              checked={isTriplePay}
+              onChange={onToggleTriplePay}
+              disabled={!selectedDate}
+              aria-label="三薪日"
+            />
+            三薪日
+          </label>
           <div className="day-panel__header-actions">
             <button
               type="button"

@@ -50,6 +50,7 @@ export default function MonthCalendar({
   monthTotalHours = '0.0',
   pasteMode = null,
   pasteSourceDate = null,
+  triplePayDates = new Set(),
   onSelectDate,
   onPrevMonth,
   onNextMonth,
@@ -107,6 +108,7 @@ export default function MonthCalendar({
             isSelected ? 'is-selected' : '',
             isPasteSource ? 'is-paste-source' : '',
             inPasteMode && !isPasteSource ? 'is-paste-target' : '',
+            triplePayDates.has(cell.key) ? 'is-triple-pay' : '',
           ]
             .filter(Boolean)
             .join(' ')
@@ -121,6 +123,9 @@ export default function MonthCalendar({
               aria-label={`${cell.key}${hasData ? `，${summary.entry_count}人，${summary.total_effective_hours}小时` : ''}${inPasteMode && !isPasteSource ? '，粘贴目标' : ''}`}
             >
               <span className="month-calendar__day-num">{cell.day}</span>
+              {triplePayDates.has(cell.key) ? (
+                <span className="month-calendar__triple-pay">三薪</span>
+              ) : null}
               {hasData ? (
                 <span className="month-calendar__meta">
                   <Metric value={summary.entry_count} unit="人" />
