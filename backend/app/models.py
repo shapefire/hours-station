@@ -113,3 +113,11 @@ class TimeDispute(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_entry_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("work_entries.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TriplePayDay(Base):
+    __tablename__ = "triple_pay_days"
+    __table_args__ = (UniqueConstraint("work_date", name="uq_triple_pay_days_work_date"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    work_date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

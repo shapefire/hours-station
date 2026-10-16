@@ -17,6 +17,7 @@ from app.models import (  # noqa: F401
     NotePreset,
     StoreSettings,
     TimeDispute,
+    TriplePayDay,
     WorkEntry,
 )
 from app.main import app
