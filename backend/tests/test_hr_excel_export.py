@@ -331,3 +331,89 @@ def test_template_total_formulas_match_full_day_range():
 
         expected = f"=SUM(E{off_row}:AI{off_row})-SUM(E{on_row}:AI{on_row})"
         assert ws.cell(on_row, aj_col).value == expected
+
+
+def test_triple_pay_value_is_hours_times_two(client, db):
+    client.put("/api/triple-pay-days/2026-08-01", json={"is_triple_pay": True})
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-01", "name": "张三", "start_time": "08:00", "end_time": "16:00"},
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    # 张三第 1 位：off 行 AM4 = 7.5×2 = 15
+    assert ws.cell(PERSON_START_ROW + 2, TRIPLE_PAY_COL + 1).value in (15, 15.0)
+
+
+def test_triple_pay_sum_and_exclusions(client, db):
+    client.put("/api/triple-pay-days/2026-08-01", json={"is_triple_pay": True})
+    client.put("/api/triple-pay-days/2026-08-02", json={"is_triple_pay": True})
+    client.post(
+        "/api/entries",
+        json={
+            "work_date": "2026-08-01",
+            "name": "张三",
+            "start_time": "08:00",
+            "end_time": "16:00",
+            "ot_start_time": "16:00",
+            "ot_end_time": "18:00",
+        },
+    )
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-02", "name": "张三", "start_time": "08:00", "end_time": "16:00"},
+    )
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-01", "name": "李四", "status": "support"},
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    # 8/1: 7.5+2.0=9.5 → ×2=19；8/2: 7.5×2=15；合计 34
+    assert ws.cell(PERSON_START_ROW + 2, TRIPLE_PAY_COL + 1).value in (34, 34.0)
+
+
+def test_no_triple_pay_day_leaves_am_empty(client, db):
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-01", "name": "张三", "start_time": "08:00", "end_time": "16:00"},
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    assert ws.cell(PERSON_START_ROW + 2, TRIPLE_PAY_COL + 1).value in (None, "")
+
+
+def test_triple_pay_excludes_support_and_rest_without_ot(client, db):
+    client.put("/api/triple-pay-days/2026-08-01", json={"is_triple_pay": True})
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-01", "name": "李四", "status": "support"},
+    )
+    client.post(
+        "/api/entries",
+        json={"work_date": "2026-08-01", "name": "王五", "status": "rest"},
+    )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    # 李四(person0) off 行 AM4 空；王五(person1) on 行 AM5 空
+    assert ws.cell(PERSON_START_ROW + 2, TRIPLE_PAY_COL + 1).value in (None, "")
+    assert ws.cell(PERSON_START_ROW + ROWS_PER_PERSON + 1, TRIPLE_PAY_COL + 1).value in (None, "")
+
+
+def test_triple_pay_beyond_template_slots(client, db):
+    client.put("/api/triple-pay-days/2026-08-01", json={"is_triple_pay": True})
+    for i in range(TEMPLATE_PERSON_SLOTS + 1):
+        client.post(
+            "/api/entries",
+            json={
+                "work_date": "2026-08-01",
+                "name": f"员工{i + 1}",
+                "start_time": "08:00",
+                "end_time": "16:00",
+            },
+        )
+    raw = build_export_workbook(db, 2026, 8)
+    ws = load_workbook(BytesIO(raw)).active
+    extra_index = TEMPLATE_PERSON_SLOTS
+    on_r = PERSON_START_ROW + extra_index * ROWS_PER_PERSON + 1
+    assert ws.cell(on_r, TRIPLE_PAY_COL + 1).value in (15, 15.0)

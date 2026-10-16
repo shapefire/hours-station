@@ -41,6 +41,8 @@ from app.services.hr_excel_layout import (
     WEEKDAY_ROW,
 )
 from app.services.settings import get_store_name
+from app.services.entries import entry_hours_decimal
+from app.services.triple_pay_days import triple_pay_dates_between
 
 WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
@@ -167,6 +169,30 @@ def _clear_triple_pay_stat(ws: Worksheet, on_r: int, off_r: int, person_index: i
     _set_cell(ws, off_r, col, None)
 
 
+def _write_triple_pay(
+    ws: Worksheet,
+    on_r: int,
+    off_r: int,
+    person_index: int,
+    entries: list[WorkEntry],
+    triple_pay_dates: set[date],
+) -> None:
+    """按三薪日写入三薪值：Σ(当天有效工时 × 2)；无则留空。"""
+    total = Decimal("0")
+    for entry in entries:
+        if entry.status == "support":
+            continue
+        if entry.work_date in triple_pay_dates:
+            total += entry_hours_decimal(entry) * 2
+    col = TRIPLE_PAY_COL + 1
+    value = excel_hour_value(total) if total != 0 else None
+    if person_index == 0:
+        _set_cell(ws, off_r, col, value)
+        return
+    _set_cell(ws, on_r, col, value)
+    _set_cell(ws, off_r, col, None)
+
+
 def _ensure_aj_merge(ws: Worksheet, on_r: int, off_r: int) -> None:
     aj_col = TOTAL_HEADER_COL + 1
     merge_range = (
@@ -287,6 +313,7 @@ def build_export_workbook(db: Session, year: int, month: int) -> bytes:
         by_emp[e.employee_id].append(e)
 
     people = list_export_employees(db, year, month)
+    triple_pay_dates = triple_pay_dates_between(db, month_start, month_end)
 
     wb = load_workbook(TEMPLATE_PATH)
     ws = wb.active
@@ -303,12 +330,12 @@ def build_export_workbook(db: Session, year: int, month: int) -> bytes:
         if i >= len(people):
             _clear_person_slot(ws, on_row0, days, i)
             continue
-        _fill_person(ws, i, people[i], by_emp.get(people[i].id, []), days)
+        _fill_person(ws, i, people[i], by_emp.get(people[i].id, []), days, triple_pay_dates)
 
     # Extra people beyond template slots
     for i in range(TEMPLATE_PERSON_SLOTS, len(people)):
         _ensure_person_rows(ws, i)
-        _fill_person(ws, i, people[i], by_emp.get(people[i].id, []), days)
+        _fill_person(ws, i, people[i], by_emp.get(people[i].id, []), days, triple_pay_dates)
 
     buf = BytesIO()
     wb.save(buf)
@@ -321,6 +348,7 @@ def _fill_person(
     emp: Employee,
     entries: list[WorkEntry],
     days_in_month: int,
+    triple_pay_dates: set[date],
 ) -> None:
     on_row0 = PERSON_START_ROW + index * ROWS_PER_PERSON
     on_r = on_row0 + 1
@@ -349,5 +377,5 @@ def _fill_person(
         _set_cell(ws, off_r, col, excel_hour_value(out) if out is not None else None)
 
     _clear_support_value(ws, on_r, off_r, index)
-    _clear_triple_pay_stat(ws, on_r, off_r, index)
+    _write_triple_pay(ws, on_r, off_r, index, entries, triple_pay_dates)
     _write_person_total(ws, on_r, off_r)
