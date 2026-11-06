@@ -25,12 +25,12 @@ def test_time_to_hour_number():
     assert excel_hour_value(Decimal("7.5")) == 7.5
 
 
-def test_on_duty_adds_half_hour_when_not_skip():
+def test_on_duty_deducts_half_hour_from_clock_out_when_not_skip():
     inn, out = clock_in_out_for_entry(_e(
         start_time=time(7, 30), end_time=time(16, 0),
     ))
-    assert inn == Decimal("8.0")
-    assert out == Decimal("16.0")
+    assert inn == Decimal("7.5")
+    assert out == Decimal("15.5")
 
 
 def test_on_duty_skip_meal_keeps_start():
@@ -46,16 +46,16 @@ def test_on_duty_ot_adds_to_clock_out():
         start_time=time(7, 30), end_time=time(16, 0),
         ot_start_time=time(22, 0), ot_end_time=time(23, 30),
     ))
-    assert inn == Decimal("8.0")
-    assert out == Decimal("17.5")
+    assert inn == Decimal("7.5")
+    assert out == Decimal("17.0")
 
 
 def test_support_same_as_on_duty():
     inn, out = clock_in_out_for_entry(_e(
         status="support", start_time=time(11, 0), end_time=time(19, 0),
     ))
-    assert inn == Decimal("11.5")
-    assert out == Decimal("19.0")
+    assert inn == Decimal("11.0")
+    assert out == Decimal("18.5")
 
 
 def test_rest_without_ot_blank():

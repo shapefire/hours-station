@@ -87,8 +87,8 @@ def test_duty_cells_and_support_column(client, db):
     ws = load_workbook(BytesIO(raw)).active
     on_cell = ws.cell(PERSON_START_ROW + 1, DAY1_COL + 1).value
     off_cell = ws.cell(PERSON_START_ROW + 2, DAY1_COL + 1).value
-    assert on_cell in (8, 8.0)
-    assert off_cell in (17.5, 17.50)
+    assert on_cell in (7.5, 7.50)
+    assert off_cell in (17, 17.0)
     # 无支援 → 支援列空
     # 模板在 AN3 放了“支援”标题；第一位人员的支援数值应在 AN4
     on_row = PERSON_START_ROW + 1  # openpyxl 1-based
@@ -193,9 +193,9 @@ def test_on_duty_short_shift_no_deduction_in_export_cells(client, db):
     start_t = time(8, 0)
     end_t = time(11, 30)
     effective_main = effective_hours(start_t, end_t)
-    end_h = time_to_hour_number(end_t)
-    expected_on = end_h - effective_main
-    expected_off = end_h
+    start_h = time_to_hour_number(start_t)
+    expected_on = start_h
+    expected_off = start_h + effective_main
 
     on_cell = ws.cell(on_row, day1_col).value
     off_cell = ws.cell(off_row, day1_col).value
