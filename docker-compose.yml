@@ -19,6 +19,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-mirrors.cloud.tencent.com}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.cloud.tencent.com/pypi/simple/}
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hours}:${POSTGRES_PASSWORD:-hours}@db:5432/${POSTGRES_DB:-hours_station}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8810}
